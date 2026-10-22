@@ -1,0 +1,20 @@
+# Llaves y secretos
+.env
+
+# Resultados generados por el programa
+output/*
+!output/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editores / sistema
+.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+~$*.xlsx

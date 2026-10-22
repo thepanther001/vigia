@@ -1,0 +1,79 @@
+{
+  "resultsPerPage": 3,
+  "startIndex": 0,
+  "totalResults": 3,
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "timestamp": "2026-10-22T15:00:00.000",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2025-0001",
+        "sourceIdentifier": "cve@mitre.org",
+        "published": "2025-01-05T10:15:09.123",
+        "lastModified": "2025-02-01T08:00:00.000",
+        "vulnStatus": "Analyzed",
+        "cisaExploitAdd": "2025-01-10",
+        "cisaVulnerabilityName": "Ejemplo Web Server Remote Code Execution",
+        "descriptions": [
+          {"lang": "en", "value": "A remote code execution vulnerability in Example Web Server."},
+          {"lang": "es", "value": "Vulnerabilidad de ejecución remota de código en Example Web Server."}
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "vendor@example.com",
+              "type": "Secondary",
+              "cvssData": {"version": "3.1", "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H", "baseScore": 8.1, "baseSeverity": "HIGH"}
+            },
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {"version": "3.1", "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "baseScore": 9.8, "baseSeverity": "CRITICAL"}
+            }
+          ]
+        },
+        "weaknesses": [
+          {"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-78"}]},
+          {"source": "vendor@example.com", "type": "Secondary", "description": [{"lang": "en", "value": "CWE-20"}]}
+        ],
+        "configurations": [
+          {"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [
+            {"vulnerable": true, "criteria": "cpe:2.3:a:example_corp:web_server:*:*:*:*:*:*:*:*", "matchCriteriaId": "A"},
+            {"vulnerable": true, "criteria": "cpe:2.3:a:example_corp:admin_panel:2.0:*:*:*:*:*:*:*", "matchCriteriaId": "B"}
+          ]}]}
+        ],
+        "references": [{"url": "https://example.com/advisory", "source": "cve@mitre.org"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2025-0002",
+        "published": "2025-02-14T00:00:00.000",
+        "lastModified": "2025-02-14T00:00:00.000",
+        "vulnStatus": "Awaiting Analysis",
+        "descriptions": [{"lang": "en", "value": "=cmd|' /C calc'!A0 SQL injection in a login form."}],
+        "metrics": {
+          "cvssMetricV2": [
+            {"source": "nvd@nist.gov", "type": "Primary",
+             "cvssData": {"version": "2.0", "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P", "baseScore": 7.5},
+             "baseSeverity": "HIGH"}
+          ]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "NVD-CWE-noinfo"}]}],
+        "configurations": []
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2025-0003",
+        "published": "2025-03-01T12:00:00.000",
+        "lastModified": "2025-03-01T12:00:00.000",
+        "vulnStatus": "Received",
+        "descriptions": [{"lang": "en", "value": "Prototype pollution in example-lib."}],
+        "metrics": {},
+        "weaknesses": [{"source": "x", "type": "Primary", "description": [{"lang": "en", "value": "CWE-1321"}]}]
+      }
+    }
+  ]
+}

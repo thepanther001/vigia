@@ -1,0 +1,55 @@
+[
+  {
+    "ghsa_id": "GHSA-aaaa-bbbb-cccc",
+    "cve_id": "CVE-2025-0003",
+    "url": "https://api.github.com/advisories/GHSA-aaaa-bbbb-cccc",
+    "html_url": "https://github.com/advisories/GHSA-aaaa-bbbb-cccc",
+    "summary": "Prototype pollution in example-lib",
+    "description": "example-lib before 1.2.3 allows prototype pollution via merge().",
+    "type": "reviewed",
+    "severity": "moderate",
+    "published_at": "2025-03-02T18:00:00Z",
+    "updated_at": "2025-03-05T18:00:00Z",
+    "withdrawn_at": null,
+    "vulnerabilities": [
+      {"package": {"ecosystem": "npm", "name": "example-lib"}, "vulnerable_version_range": "< 1.2.3", "first_patched_version": "1.2.3"}
+    ],
+    "cvss_severities": {
+      "cvss_v3": {"vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L", "score": 5.6},
+      "cvss_v4": {"vector_string": null, "score": 0.0}
+    },
+    "cwes": [{"cwe_id": "CWE-1321", "name": "Improperly Controlled Modification of Object Prototype Attributes"}]
+  },
+  {
+    "ghsa_id": "GHSA-dddd-eeee-ffff",
+    "cve_id": null,
+    "html_url": "https://github.com/advisories/GHSA-dddd-eeee-ffff",
+    "summary": "Aviso sin CVE",
+    "description": "Sin CVE asignado.",
+    "severity": "low",
+    "published_at": "2025-03-03T00:00:00Z",
+    "updated_at": "2025-03-03T00:00:00Z",
+    "vulnerabilities": [{"package": {"ecosystem": "pip", "name": "otro-paquete"}}],
+    "cvss_severities": {"cvss_v3": {"vector_string": null, "score": null}, "cvss_v4": {"vector_string": null, "score": null}},
+    "cwes": []
+  },
+  {
+    "ghsa_id": "GHSA-gggg-hhhh-iiii",
+    "cve_id": "CVE-2025-0004",
+    "html_url": "https://github.com/advisories/GHSA-gggg-hhhh-iiii",
+    "summary": "Deserialization in java-lib",
+    "description": "Unsafe deserialization.",
+    "severity": "critical",
+    "published_at": "2025-03-10T00:00:00Z",
+    "updated_at": "2025-03-11T00:00:00Z",
+    "vulnerabilities": [
+      {"package": {"ecosystem": "maven", "name": "org.example:java-lib"}},
+      {"package": {"ecosystem": "maven", "name": "org.example:java-lib-core"}}
+    ],
+    "cvss_severities": {
+      "cvss_v3": {"vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "score": 9.8},
+      "cvss_v4": {"vector_string": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N", "score": 9.3}
+    },
+    "cwes": [{"cwe_id": "CWE-502", "name": "Deserialization of Untrusted Data"}]
+  }
+]

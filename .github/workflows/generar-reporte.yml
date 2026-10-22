@@ -1,0 +1,73 @@
+name: Generar reporte CVE
+
+# Se ejecuta a mano desde la pestaña "Actions" del repositorio:
+# Actions > Generar reporte CVE > Run workflow > llenar fechas y fuentes.
+on:
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Fecha inicial (AAAA-MM-DD). Vacío = usar 'últimos días'"
+        required: false
+        default: ""
+      hasta:
+        description: "Fecha final (AAAA-MM-DD). Vacío = hoy"
+        required: false
+        default: ""
+      ultimos_dias:
+        description: "Si no pones 'desde': cantidad de días hacia atrás"
+        required: false
+        default: "30"
+      fuentes:
+        description: "Bases: nvd,kev,ghsa o todas"
+        required: true
+        default: "todas"
+      formato:
+        description: "excel, csv o ambos"
+        required: true
+        default: "ambos"
+        type: choice
+        options: [ambos, excel, csv]
+      epss:
+        description: "Agregar EPSS"
+        type: boolean
+        default: false
+
+jobs:
+  reporte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Ejecutar CVE Explorer
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}   # opcional: Settings > Secrets > Actions
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+          DIAS: ${{ inputs.ultimos_dias }}
+          FUENTES: ${{ inputs.fuentes }}
+          FORMATO: ${{ inputs.formato }}
+          EPSS: ${{ inputs.epss }}
+        run: |
+          ARGS=(--fuentes "$FUENTES" --formato "$FORMATO")
+          if [ -n "$DESDE" ]; then
+            ARGS+=(--desde "$DESDE")
+            [ -n "$HASTA" ] && ARGS+=(--hasta "$HASTA")
+          else
+            ARGS+=(--ultimos-dias "$DIAS")
+          fi
+          [ "$EPSS" = "true" ] && ARGS+=(--epss)
+          python main.py "${ARGS[@]}"
+
+      - name: Subir resultados
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-cve
+          path: output/
+          retention-days: 30
