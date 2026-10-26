@@ -108,10 +108,15 @@ def _texto_seguro(valor, maximo: int = 32000):
     return valor[:maximo]
 
 
+def _es_texto(serie: pd.Series) -> bool:
+    """object (pandas 2) o str (pandas 3: las columnas de texto ya no son 'object')."""
+    return pd.api.types.is_object_dtype(serie) or pd.api.types.is_string_dtype(serie)
+
+
 def limpiar(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     for col in df.columns:
-        if df[col].dtype == object:
+        if _es_texto(df[col]):
             df[col] = df[col].map(_texto_seguro)
     return df
 
@@ -136,7 +141,11 @@ def exportar_csv(tablas: dict[str, pd.DataFrame], carpeta: Path) -> list[Path]:
         for col in salida.columns:
             if pd.api.types.is_datetime64_any_dtype(salida[col]):
                 salida[col] = salida[col].dt.strftime("%Y-%m-%d")
-        salida.to_csv(ruta, index=False, encoding="utf-8-sig")
+            elif _es_texto(salida[col]):
+                # Una fila = una línea. Power BI, con su configuración por defecto,
+                # corta la fila si una descripción trae saltos de línea.
+                salida[col] = salida[col].map(lambda v: " ".join(v.split()) if isinstance(v, str) else v)
+        salida.to_csv(ruta, index=False, encoding="utf-8-sig", lineterminator="\n")
         rutas.append(ruta)
     return rutas
 
@@ -427,7 +436,6 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
         g.add_data(Reference(t, min_col=2, max_col=t.max_column, min_row=1, max_row=t.max_row), titles_from_data=True)
         g.set_categories(Reference(t, min_col=1, min_row=2, max_row=t.max_row))
         for serie in g.series:
-            nombre = serie.tx.strRef.f if serie.tx and serie.tx.strRef else ""
             serie.smooth = False
             serie.marker.symbol = "circle" if puntos <= 3 else "none"
             serie.graphicalProperties.line.width = 22000

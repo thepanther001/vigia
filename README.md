@@ -191,7 +191,7 @@ python main.py --ultimos-dias 7 --fuentes kev --alerta-discord --dias-alerta 7
 
 | Workflow | Cuándo | Qué hace |
 |---|---|---|
-| `pruebas.yml` | Cada `push` | Corre las 41 pruebas automáticas |
+| `pruebas.yml` | Cada `push` | Corre las pruebas automáticas |
 | `panel-diario.yml` | Todos los días 7:17 a. m. (RD) y a mano | Consulta 30 días, publica el panel en **GitHub Pages**, avisa a Discord |
 | `generar-reporte.yml` | A mano (Actions → Run workflow) | Reporte con fechas/fuentes a elección; el Excel queda en *Artifacts* |
 
@@ -221,20 +221,21 @@ output/
 │   ├── cwe_por_cve.csv               una fila por CVE y CWE
 │   └── por_mes.csv                   conteo mensual por fuente
 └── dashboard/
-    └── index.html                    panel web (+ copia del Excel y CSV para descargar)
+    └── index.html                    panel web: parte de vigilancia, horizonte de 30 días,
+                                      cola de corrección, inventario (+ Excel y CSV para descargar)
 ```
 
 ### Hojas del Excel
 
 | Hoja | Contenido |
 |---|---|
-| **Resumen** | 8 indicadores y 4 gráficos |
+| **Resumen** | Franja con lo urgente del periodo y 5 gráficos (tendencia, severidad, plazos, proveedores, debilidades) |
 | **Prioridad** | Top 100 por índice de prioridad, con nivel, plazo y motivo |
 | **Activos** | Cada activo del inventario con cuántas CVE lo afectan |
 | **Inventario** | Detalle activo × CVE |
 | **Consolidado** | Una fila por CVE, tabla filtrable con colores |
 | **Registros** | Datos tal cual los reporta cada fuente |
-| **Por_Mes / Por_Severidad / Top_Proveedores / Top_CWE** | Resúmenes |
+| **Tendencia / Por_Mes / Por_Severidad / Por_Prioridad / Top_Proveedores / Top_CWE** | Tablas que alimentan los gráficos |
 | **Parametros** | Rango, fuentes, fórmula, resultado de cada consulta y advertencias |
 
 ---
@@ -261,7 +262,7 @@ vigia/
 │   ├── plantillas/               HTML y JavaScript del panel
 │   └── alertas.py                alertas a Discord
 ├── inventario/empresa_ejemplo.csv
-├── tests/                        41 pruebas con datos de ejemplo (sin internet)
+├── tests/                        pruebas con datos de ejemplo (sin internet)
 ├── docs/GUIA_POWER_BI.md
 ├── .devcontainer/                configuración de Codespaces
 └── .github/workflows/            pruebas, panel diario y reporte bajo demanda

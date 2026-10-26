@@ -4,7 +4,6 @@ import json
 import re
 from datetime import date
 
-import pandas as pd
 import pytest
 
 from conftest import cargar

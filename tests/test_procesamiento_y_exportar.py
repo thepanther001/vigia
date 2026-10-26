@@ -74,6 +74,22 @@ def test_texto_seguro_quita_caracteres_que_rompen_excel():
     assert _texto_seguro("=1+1") == " =1+1"
 
 
+def test_csv_una_fila_por_linea(tmp_path):
+    from vigia.exportar import exportar_csv
+    df = pd.DataFrame({"cve_id": ["CVE-1", "CVE-2"], "descripcion": ["línea 1\nlínea 2\r\nfin", "normal"]})
+    ruta = exportar_csv({"t": df}, tmp_path)[0]
+    lineas = ruta.read_text(encoding="utf-8-sig").splitlines()
+    assert len(lineas) == 3 and "línea 1 línea 2 fin" in lineas[1]
+
+
+def test_limpiar_tambien_columnas_str():
+    """En pandas 3 el texto es dtype 'str'; la protección debe aplicarse igual."""
+    from vigia.exportar import limpiar
+    df = pd.DataFrame({"t": pd.array(["=HYPERLINK(1)", "ok\uffff"], dtype="string")})
+    limpio = limpiar(df)
+    assert list(limpio["t"]) == [" =HYPERLINK(1)", "ok"]
+
+
 def test_consolidar_vacio():
     assert proc.consolidar(proc.registros_a_df([])).empty
 

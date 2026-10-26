@@ -109,8 +109,12 @@
       (K.urgente ? `Después vienen ${fmt(K.urgente)} para corregir esta semana.` : "");
   } else {
     h1.classList.add("calma");
-    h1.append("Nada urgente hoy. ", el("span", { class: "cifra", text: fmt(K.urgente) }),
-      ` ${plural(K.urgente, "para", "para")} esta semana.`);
+    if (K.urgente > 0) {
+      h1.append("Nada inmediato. ", el("span", { class: "cifra", text: fmt(K.urgente) }),
+        ` ${plural(K.urgente, "vulnerabilidad", "vulnerabilidades")} para corregir esta semana.`);
+    } else {
+      h1.append("Nada urgente en este periodo.");
+    }
     $("#bajada").textContent = "Ninguna vulnerabilidad del periodo llega al nivel de corrección inmediata.";
   }
 
@@ -128,8 +132,10 @@
   const S = D.serie;
   const etiquetas = S.etiquetas;
   const kev = S.series["CISA KEV"] || etiquetas.map(() => 0);
-  const totales = etiquetas.map((_, i) =>
-    Object.entries(S.series).filter(([f]) => f !== "CISA KEV").reduce((a, [, v]) => a + (v[i] || 0), 0));
+  // Barras = CVE publicadas (NVD + GitHub). Si solo se consultó CISA KEV, las barras son las de KEV.
+  const otras = Object.entries(S.series).filter(([f]) => f !== "CISA KEV");
+  const soloKev = otras.length === 0;
+  const totales = etiquetas.map((_, i) => soloKev ? (kev[i] || 0) : otras.reduce((a, [, v]) => a + (v[i] || 0), 0));
   const maximo = Math.max(1, ...totales);
   const maxKev = Math.max(1, ...kev);
   const n = etiquetas.length, alto = 150, techo = 34;
@@ -149,7 +155,7 @@
       const h = Math.max(totales[i] ? 2 : 0, (totales[i] / maximo) * (alto - techo - 6));
       g.append(svgEl("rect", { x: i * paso, y: 0, width: paso, height: alto, fill: "transparent" }));
       g.append(svgEl("rect", { class: "barra-dia", x: i * paso + hueco / 2, y: alto - h, width: Math.max(1, paso - hueco), height: h, rx: Math.min(3, paso / 6) }));
-      if (kev[i] > 0) {
+      if (kev[i] > 0 && !soloKev) {
         const r = Math.min(paso / 2.2, 3.5 + 3 * Math.sqrt(kev[i] / maxKev));
         g.append(svgEl("circle", { class: "punto", cx: i * paso + paso / 2, cy: alto - h - r - 5, r }));
       }
@@ -185,12 +191,21 @@
       if (Math.abs(svg.clientWidth - ultimoAncho) > 4) { ultimoAncho = svg.clientWidth; $("#horizonte").classList.remove("anim"); dibujarHorizonte(); }
     }).observe(svg);
   }
-  const pico = totales.indexOf(maximo);
+  const pico = totales.indexOf(Math.max(...totales, 0));
+  const hayDatos = n > 0 && totales[pico] > 0;
   $("#h-horizonte").textContent =
-    `CVE publicadas por ${S.granularidad}. El pico fue ${nombreDia(etiquetas[pico])} con ${fmt(maximo)}. ` +
+    (hayDatos ? `CVE publicadas por ${S.granularidad}. El pico fue ${nombreDia(etiquetas[pico])} con ${fmt(totales[pico])}. `
+              : "No hubo publicaciones en el periodo. ") +
     `${fmt(kev.filter(Boolean).length)} ${plural(kev.filter(Boolean).length, "día", "días")} con vulnerabilidades agregadas a KEV.`;
+  const unidad = diaria ? "ese día" : "ese mes";
+  if (soloKev) {
+    $("#ley-barra").textContent = `Agregadas a KEV ${unidad} (CISA confirmó ataques)`;
+    $("#ley-punto").hidden = true;
+  } else {
+    $("#ley-barra").textContent = `CVE publicadas ${unidad}`;
+  }
   const eje = $("#eje");
-  const marcas = n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0];
+  const marcas = n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : n === 1 ? [0] : [];
   for (const i of marcas) eje.append(el("span", { text: diaria ? fecha(etiquetas[i], { day: "numeric", month: "short" }) : nombreDia(etiquetas[i]) }));
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#horizonte").classList.add("anim");
 
@@ -306,9 +321,9 @@
   function filtrados() {
     const q = $("#f-texto").value.trim().toLowerCase();
     const niv = $("#f-nivel").value, sev = $("#f-sev").value;
-    const soloKev = $("#f-kev").checked, soloInv = $("#f-inv").checked;
+    const soloExpl = $("#f-kev").checked, soloInv = $("#f-inv").checked;
     return D.cves.filter((c, i) => (!q || indice[i].includes(q)) && (!niv || c.nivel === niv) &&
-      (!sev || c.sev === sev) && (!soloKev || c.kev) && (!soloInv || c.activos));
+      (!sev || c.sev === sev) && (!soloExpl || c.kev) && (!soloInv || c.activos));
   }
   function pintarTabla() {
     const lista = filtrados();

@@ -28,17 +28,17 @@ on:
         type: choice
         options: [ambos, excel, csv]
       epss:
-        description: "Agregar EPSS"
+        description: "Agregar EPSS (probabilidad de explotación)"
         type: boolean
-        default: false
+        default: true
 
 jobs:
   reporte:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -62,7 +62,7 @@ jobs:
           else
             ARGS+=(--ultimos-dias "$DIAS")
           fi
-          [ "$EPSS" = "true" ] && ARGS+=(--epss)
+          if [ "$EPSS" != "true" ]; then ARGS+=(--sin-epss); fi
           python main.py "${ARGS[@]}"
 
       - name: Subir resultados

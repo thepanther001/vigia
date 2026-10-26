@@ -225,7 +225,10 @@ def ejecutar(args) -> int:
         advertencias.extend(fuente.advertencias)
 
     if not registros:
-        print("No se obtuvo ningún registro. Revisa la conexión o amplía el rango de fechas.")
+        if any(e.startswith("ERROR") for e in estado_fuentes.values()):
+            print("No se obtuvo ningún registro: alguna fuente no respondió. Revisa la conexión e inténtalo de nuevo.")
+        else:
+            print("No hubo vulnerabilidades publicadas en ese rango. Prueba con un rango más amplio.")
         return 1
 
     print("Procesando datos...")
