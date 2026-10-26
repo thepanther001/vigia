@@ -13,7 +13,8 @@ from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
 from openpyxl.chart.title import Title
-from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RegularTextRun
+from openpyxl.drawing.image import Image as ImagenExcel
+from openpyxl.drawing.text import CharacterProperties, Font as FuenteGrafico, Paragraph, ParagraphProperties, RegularTextRun
 from openpyxl.drawing.line import LineProperties
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
@@ -200,6 +201,11 @@ def _tabla_simple(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, anchos
 
 # ----------------------------------------------------------------- hoja Resumen
 
+# Identidad Vigía: Inter para todo el contenido de Excel. Si la PC no la tiene
+# instalada, Excel usa su fuente por defecto sin dañar nada.
+FUENTE = "Inter"
+LOGO_EXCEL = Path(__file__).parent / "plantillas" / "logo-excel.png"
+
 COLOR_FUENTE = {"NVD": "2A78D6", "CISA KEV": "EB6834", "GitHub Advisory": "1BAF7A"}
 GRIS_LINEA = "E5E7EB"
 ALTO_GRAFICO = 7.6      # cm (≈ 14 filas de 15 pt)
@@ -213,13 +219,13 @@ def _titulo(texto: str) -> Title:
     openpyxl no escribe <c:overlay val="0"/> y, sin esa etiqueta, Excel pone el
     título y la leyenda ENCIMA del área del gráfico (en LibreOffice no pasa).
     """
-    letra = CharacterProperties(sz=1200, b=True, solidFill="1F2937")
+    letra = CharacterProperties(sz=1200, b=True, solidFill="1B2B48", latin=FuenteGrafico(typeface=FUENTE))
     parrafo = Paragraph(pPr=ParagraphProperties(defRPr=letra), r=[RegularTextRun(rPr=letra, t=texto)])
     return Title(tx=Text(rich=RichText(p=[parrafo])), overlay=False)
 
 
 def _texto_ejes(eje, tamano: int = 900) -> None:
-    letra = CharacterProperties(sz=tamano, solidFill="4B5563")
+    letra = CharacterProperties(sz=tamano, solidFill="4B5563", latin=FuenteGrafico(typeface=FUENTE))
     eje.txPr = RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=letra), endParaRPr=letra)])
 
 
@@ -281,13 +287,22 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
     for col, ancho in zip("ABCDEFGHIJKLM", [2, 24, 13, 2, 24, 13, 2, 24, 13, 2, 24, 13, 2]):
         ws.column_dimensions[col].width = ancho
 
-    ws.merge_cells("B2:L2")
-    ws["B2"] = "Vigía · Reporte de vulnerabilidades CVE"
-    ws["B2"].font = Font(size=20, bold=True, color=AZUL)
-    ws.merge_cells("B3:L3")
-    ws["B3"] = (f"Periodo: {parametros['Desde']} a {parametros['Hasta']}   ·   "
+    # --- Encabezado: logo + título
+    ws.row_dimensions[2].height = 30
+    ws.row_dimensions[3].height = 18
+    if LOGO_EXCEL.exists():
+        logo = ImagenExcel(str(LOGO_EXCEL))
+        logo.height = 48
+        logo.width = round(48 * 2.69)
+        ws.add_image(logo, "B2")
+    ws.merge_cells("C2:L2")
+    ws["C2"] = "Reporte de vulnerabilidades CVE"
+    ws["C2"].font = Font(name=FUENTE, size=18, bold=True, color=AZUL)
+    ws["C2"].alignment = Alignment(vertical="center")
+    ws.merge_cells("C3:L3")
+    ws["C3"] = (f"Periodo: {parametros['Desde']} a {parametros['Hasta']}   ·   "
                 f"Fuentes: {parametros['Fuentes consultadas']}   ·   Generado: {parametros['Generado']}")
-    ws["B3"].font = Font(size=10, color=GRIS)
+    ws["C3"].font = Font(name=FUENTE, size=10, color=GRIS)
 
     # --- Indicadores (2 filas de 4 tarjetas)
     tarjetas = [
@@ -307,11 +322,11 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
         ws.merge_cells(f"{c1}{fila}:{c2}{fila}")
         ws.merge_cells(f"{c1}{fila + 1}:{c2}{fila + 1}")
         ws[f"{c1}{fila}"] = titulo
-        ws[f"{c1}{fila}"].font = Font(size=10, color=GRIS, bold=True)
+        ws[f"{c1}{fila}"].font = Font(name=FUENTE, size=10, color=GRIS, bold=True)
         ws[f"{c1}{fila}"].alignment = Alignment(horizontal="left", vertical="bottom", indent=1)
         celda = ws[f"{c1}{fila + 1}"]
         celda.value = valor
-        celda.font = Font(size=22, bold=True, color=color)
+        celda.font = Font(name=FUENTE, size=22, bold=True, color=color)
         celda.alignment = Alignment(horizontal="left", vertical="center", indent=1)
         celda.number_format = "0.00" if isinstance(valor, float) else "#,##0"
         ws.row_dimensions[fila + 1].height = 34
@@ -322,10 +337,11 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
 
     # --- Registros por fuente (tabla pequeña, filas 12-15; los gráficos empiezan en la 18)
     ws["B12"] = "Registros por fuente"
-    ws["B12"].font = Font(bold=True, color=AZUL)
+    ws["B12"].font = Font(name=FUENTE, bold=True, color=AZUL)
     for j, (fuente, n) in enumerate(kpis["Registros por fuente"].items(), start=1):
         ws[f"B{12 + j}"] = fuente
         ws[f"C{12 + j}"] = n
+        ws[f"B{12 + j}"].font = ws[f"C{12 + j}"].font = Font(name=FUENTE, size=10)
         ws[f"C{12 + j}"].number_format = "#,##0"
         ws[f"C{12 + j}"].alignment = Alignment(horizontal="right")
 
@@ -452,7 +468,7 @@ def exportar_excel(
         wb = writer.book
         _hoja_resumen(wb, kpis, parametros, hojas)
         wb.active = 0
-        wb.properties.title = "Reporte de vulnerabilidades CVE"
+        wb.properties.title = "Vigía · Reporte de vulnerabilidades CVE"
         wb.properties.creator = f"Vigía {__version__}"
     return ruta
 

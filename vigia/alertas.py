@@ -20,7 +20,8 @@ from vigia.cliente_http import ClienteHTTP, ErrorFuente
 from vigia.modelo import FUENTE_KEV
 
 PATRON_WEBHOOK = re.compile(r"^https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$")
-MAX_ALERTAS = 10  # Discord acepta hasta 10 "embeds" por mensaje
+MAX_ALERTAS = 10
+AVATAR = "https://raw.githubusercontent.com/thepanther001/vigia/main/assets/logo/vigia-favicon-512.png"  # Discord acepta hasta 10 "embeds" por mensaje
 
 COLORES = {"INMEDIATA": 0xD03B3B, "URGENTE": 0xEC835A, "PLANIFICADA": 0xFAB219, "RUTINA": 0x898781}
 
@@ -91,6 +92,7 @@ def construir_mensaje(nuevas: pd.DataFrame, url_panel: str | None = None) -> dic
         encabezado += f"\nPanel completo: {url_panel}"
     return {
         "username": "Vigía",
+        "avatar_url": AVATAR,
         "content": encabezado,
         "embeds": embeds,
         "allowed_mentions": {"parse": []},  # nunca notificar a @everyone / roles

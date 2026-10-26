@@ -163,16 +163,37 @@ def _hash_csp(script: str) -> str:
     return "sha256-" + base64.b64encode(digest).decode()
 
 
+PLANTILLAS = Path(__file__).parent / "plantillas"
+
+
+def _logo_inline() -> str:
+    """Logo en SVG dentro del HTML. El texto 'Vigía' toma el color del tema
+    (azul marino en modo claro, blanco en modo oscuro)."""
+    svg = (PLANTILLAS / "logo.svg").read_text(encoding="utf-8")
+    svg = svg.replace('fill="#1B2B48"', 'style="fill:var(--wordmark)"')
+    return svg.replace("<svg ", '<svg aria-hidden="true" focusable="false" ', 1).replace('role="img" ', "")
+
+
+def _data_uri(nombre: str, tipo: str) -> str:
+    contenido = (PLANTILLAS / nombre).read_bytes()
+    return f"data:{tipo};base64,{base64.b64encode(contenido).decode()}"
+
+
 def generar_html(datos: dict) -> str:
-    plantilla = (Path(__file__).parent / "plantillas" / "dashboard.html").read_text(encoding="utf-8")
-    script = (Path(__file__).parent / "plantillas" / "dashboard.js").read_text(encoding="utf-8")
+    plantilla = (PLANTILLAS / "dashboard.html").read_text(encoding="utf-8")
+    script = (PLANTILLAS / "dashboard.js").read_text(encoding="utf-8")
     csp = (
         "default-src 'none'; "
         f"script-src '{_hash_csp(script)}' https://cdn.jsdelivr.net; "
-        "style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+        "style-src 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src data:; base-uri 'none'; form-action 'none'"
     )
     return (
         plantilla.replace("__CSP__", csp)
+        .replace("__LOGO__", _logo_inline())
+        .replace("__FAVICON__", _data_uri("icono.svg", "image/svg+xml"))
+        .replace("__ICONO180__", _data_uri("icono-180.png", "image/png"))
         .replace("__CHARTJS__", CHART_JS)
         .replace("__SRI__", CHART_JS_SRI)
         .replace("__SCRIPT__", script)          # primero el script...

@@ -1,10 +1,22 @@
-# Vigía
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/vigia-logo-blanco.png">
+    <img src="assets/logo/vigia-logo-color.png" alt="Vigía" width="360">
+  </picture>
+</p>
 
-**Vigilancia y priorización de vulnerabilidades CVE**
+<p align="center"><b>Vigilancia y priorización de vulnerabilidades CVE</b></p>
 
-[![Abrir en GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/thepanther001/vigia)
+<p align="center">
+  <a href="https://codespaces.new/thepanther001/vigia"><img src="https://github.com/codespaces/badge.svg" alt="Abrir en GitHub Codespaces"></a>
+</p>
 
-![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Pruebas](https://github.com/thepanther001/vigia/actions/workflows/pruebas.yml/badge.svg) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10%2B-2A78D6" alt="Python 3.10+">
+  <a href="https://github.com/thepanther001/vigia/actions/workflows/pruebas.yml"><img src="https://github.com/thepanther001/vigia/actions/workflows/pruebas.yml/badge.svg" alt="Pruebas"></a>
+  <img src="https://img.shields.io/badge/licencia-MIT-1B2B48" alt="Licencia MIT">
+  <a href="https://thepanther001.github.io/vigia/"><img src="https://img.shields.io/badge/panel-en%20vivo-EB6834" alt="Panel en vivo"></a>
+</p>
 
 **Panel en vivo:** https://thepanther001.github.io/vigia/ (se actualiza solo todos los días)
 
@@ -306,6 +318,10 @@ hash CSP, validación del webhook y que el Excel/CSV se generen bien.
 - **GitHub sin token:** 60 solicitudes/hora. Si se agota, se exporta lo obtenido y se avisa.
 - El cruce con el inventario es por nombre de proveedor/producto, no por versión.
 - El índice de prioridad es una ayuda para decidir, no reemplaza el análisis del contexto de cada activo.
+
+## Identidad visual
+
+Logo, colores y tipografías en [`docs/IDENTIDAD.md`](docs/IDENTIDAD.md). Archivos del logo en [`assets/logo/`](assets/logo/).
 
 ## Autor
 
