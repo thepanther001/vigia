@@ -291,10 +291,14 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
     ws.row_dimensions[2].height = 30
     ws.row_dimensions[3].height = 18
     if LOGO_EXCEL.exists():
-        logo = ImagenExcel(str(LOGO_EXCEL))
-        logo.height = 48
-        logo.width = round(48 * 2.69)
-        ws.add_image(logo, "B2")
+        try:
+            logo = ImagenExcel(str(LOGO_EXCEL))  # necesita Pillow
+            logo.height = 48
+            logo.width = round(48 * 2.69)
+            ws.add_image(logo, "B2")
+        except ImportError:
+            ws["B2"] = "Vigía"
+            ws["B2"].font = Font(name=FUENTE, size=18, bold=True, color="2A78D6")
     ws.merge_cells("C2:L2")
     ws["C2"] = "Reporte de vulnerabilidades CVE"
     ws["C2"].font = Font(name=FUENTE, size=18, bold=True, color=AZUL)
