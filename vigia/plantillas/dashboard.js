@@ -157,8 +157,10 @@
       t.textContent = `${nombreDia(e)}: ${fmt(totales[i])} CVE` + (kev[i] ? `, ${fmt(kev[i])} ${plural(kev[i], "agregada", "agregadas")} a KEV` : "");
       g.append(t);
       const mostrar = (x, y) => {
-        tip.replaceChildren(el("b", { text: nombreDia(e) }), el("br"), `${fmt(totales[i])} CVE publicadas`,
-          kev[i] ? el("span", {}, el("br"), `${fmt(kev[i])} ${plural(kev[i], "confirmada", "confirmadas")} por CISA`) : null);
+        // replaceChildren escribe "null" si recibe null: se filtran los vacíos
+        tip.replaceChildren(...[el("b", { text: nombreDia(e) }), el("br"), `${fmt(totales[i])} CVE publicadas`,
+          kev[i] ? el("span", {}, el("br"), `${fmt(kev[i])} ${plural(kev[i], "confirmada", "confirmadas")} por CISA`) : null]
+          .filter(Boolean));
         tip.style.display = "block";
         const w = tip.offsetWidth;
         tip.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, x - w / 2)) + "px";
@@ -173,6 +175,10 @@
     svg.append(svgEl("line", { class: "base", x1: 0, x2: ancho, y1: alto - 0.5, y2: alto - 0.5 }));
   }
   dibujarHorizonte();
+  // En celulares un toque deja el aviso "pegado": se oculta al desplazarse o tocar fuera
+  const ocultarTip = () => { tip.style.display = "none"; };
+  window.addEventListener("scroll", ocultarTip, { passive: true });
+  document.addEventListener("touchstart", (ev) => { if (!svg.contains(ev.target)) ocultarTip(); }, { passive: true });
   let ultimoAncho = svg.clientWidth;
   if ("ResizeObserver" in window) {
     new ResizeObserver(() => {

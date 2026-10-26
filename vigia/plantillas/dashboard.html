@@ -182,7 +182,7 @@ main { padding-bottom: 40px; }
 .fila .titulo { margin: 3px 0 2px; font-weight: 500; overflow-wrap: anywhere; }
 .fila .producto { color: var(--muted); font-size: 14px; }
 .explotada { display: inline-flex; align-items: center; gap: 6px; color: var(--alert-ink); font-size: 13.5px; font-weight: 600; }
-.explotada::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--alert); }
+.explotada::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex: none; }
 .afecta { font-size: 13.5px; color: var(--blue); font-weight: 500; }
 .datos-fila { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: right; font-size: 13px; color: var(--muted); }
 .datos-fila b { display: block; font: 600 15px var(--f-ui); color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -198,7 +198,8 @@ main { padding-bottom: 40px; }
 
 /* ---------- Inventario */
 .inventario { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 40px; }
-.inventario .nota { color: var(--ink-2); align-self: start; position: sticky; top: 24px; }
+.inventario .nota { color: var(--ink-2); align-self: start; }
+@media (min-width: 861px) { .inventario .nota { position: sticky; top: 24px; } }
 .inventario .nota p { margin: 0 0 12px; }
 .inventario .grande { font-family: var(--f-marca); font-weight: 700; font-size: 44px; letter-spacing: -0.03em; line-height: 1; color: var(--ink); margin: 0 0 6px; }
 .activos { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
@@ -210,12 +211,12 @@ main { padding-bottom: 40px; }
 .exposicion span { display: block; height: 100%; background: var(--blue); border-radius: 4px; }
 .exposicion.critica span { background: var(--alert); }
 .activos .conteo { text-align: right; font-size: 14px; color: var(--ink-2); }
-.activos .conteo .explotada { justify-content: flex-end; display: flex; }
+.activos .conteo .explotada { justify-content: flex-end; display: flex; white-space: nowrap; }
 .activos .conteo b { font-weight: 600; color: var(--ink); }
 .activos .limpio { color: var(--ok); font-weight: 500; }
 @media (max-width: 860px) {
   .inventario { grid-template-columns: 1fr; gap: 20px; }
-  .activos li { grid-template-columns: minmax(0, 1fr) 80px; }
+  .activos li { grid-template-columns: minmax(0, 1fr) auto; }
   .activos .exposicion { grid-column: 1 / -1; grid-row: 2; }
 }
 
