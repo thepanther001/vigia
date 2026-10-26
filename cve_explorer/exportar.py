@@ -21,6 +21,12 @@ from cve_explorer import __version__
 AZUL = "1B2B48"
 AZUL_CLARO = "E8EEF7"
 GRIS = "6B7280"
+COLOR_NIVEL = {
+    "INMEDIATA": "C0392B",
+    "URGENTE": "E67E22",
+    "PLANIFICADA": "F1C40F",
+    "RUTINA": "BDC3C7",
+}
 COLOR_SEVERIDAD = {
     "CRÍTICA": "C0392B",
     "ALTA": "E67E22",
@@ -38,6 +44,9 @@ ANCHOS = {
     "ecosistema": 14, "cwe": 22, "explotada_activamente": 11, "ransomware": 12,
     "en_nvd": 8, "en_kev": 8, "en_github": 9, "num_fuentes": 9, "fuentes": 32,
     "estado": 24, "url": 45, "epss": 9, "epss_percentil": 10,
+    "prioridad_puntaje": 10, "prioridad_nivel": 14, "prioridad_plazo": 16, "prioridad_motivo": 60,
+    "activos_afectados": 30, "activo": 28, "criticidad_activo": 11, "version_instalada": 14,
+    "explotadas": 11, "prioridad_max": 12,
 }
 ENCABEZADOS = {
     "cve_id": "CVE", "fuente": "Fuente", "id_fuente": "ID en la fuente", "titulo": "Título",
@@ -49,8 +58,16 @@ ENCABEZADOS = {
     "explotada_activamente": "Explotada", "ransomware": "Ransomware", "en_nvd": "En NVD",
     "en_kev": "En KEV", "en_github": "En GitHub", "num_fuentes": "Nº fuentes",
     "fuentes": "Fuentes", "estado": "Estado / acción", "url": "Enlace", "epss": "EPSS",
-    "epss_percentil": "Percentil EPSS",
+    "epss_percentil": "Percentil EPSS", "prioridad_puntaje": "Prioridad (0-100)",
+    "prioridad_nivel": "Nivel", "prioridad_plazo": "Corregir en", "prioridad_motivo": "Motivo",
+    "activos_afectados": "Activos afectados", "activo": "Activo", "criticidad_activo": "Criticidad",
+    "version_instalada": "Versión instalada", "explotadas": "Explotadas", "prioridad_max": "Prioridad máx.",
 }
+COLUMNAS_PRIORIDAD = [
+    "prioridad_puntaje", "prioridad_nivel", "prioridad_plazo", "cve_id", "titulo", "severidad",
+    "cvss_puntaje", "epss", "epss_percentil", "explotada_activamente", "ransomware", "fecha_limite_cisa",
+    "proveedor", "producto", "activos_afectados", "prioridad_motivo", "fecha_publicacion", "url",
+]
 COLUMNAS_BOOL = ["explotada_activamente", "en_nvd", "en_kev", "en_github"]
 PELIGROSOS = ("=", "+", "-", "@", "\t", "\r")
 
@@ -122,7 +139,7 @@ def _hoja_de_datos(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, estil
         if col.startswith("fecha"):
             for celda in ws[letra][1:]:
                 celda.number_format = "yyyy-mm-dd"
-        elif col in ("cvss_puntaje",):
+        elif col in ("cvss_puntaje", "prioridad_puntaje", "prioridad_max"):
             for celda in ws[letra][1:]:
                 celda.number_format = "0.0"
         elif col in ("epss", "epss_percentil"):
@@ -136,15 +153,18 @@ def _hoja_de_datos(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, estil
         tabla.tableStyleInfo = TableStyleInfo(name=estilo, showRowStripes=True)
         ws.add_table(tabla)
 
-        if "severidad" in columnas:
-            letra = get_column_letter(columnas.index("severidad") + 1)
+        for col_color, mapa in (("severidad", COLOR_SEVERIDAD), ("prioridad_nivel", COLOR_NIVEL)):
+            if col_color not in columnas:
+                continue
+            letra = get_column_letter(columnas.index(col_color) + 1)
             zona = f"{letra}2:{letra}{len(df) + 1}"
-            for sev, color in COLOR_SEVERIDAD.items():
+            for valor, color in mapa.items():
+                blanco = valor in ("CRÍTICA", "ALTA", "INMEDIATA", "URGENTE")
                 ws.conditional_formatting.add(
                     zona,
-                    CellIsRule(operator="equal", formula=[f'"{sev}"'],
+                    CellIsRule(operator="equal", formula=[f'"{valor}"'],
                                fill=PatternFill("solid", fgColor=color),
-                               font=Font(bold=True, color="FFFFFF" if sev in ("CRÍTICA", "ALTA") else "1F2937")),
+                               font=Font(bold=True, color="FFFFFF" if blanco else "1F2937")),
                 )
     return ws
 
@@ -173,13 +193,13 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    for col, ancho in zip("ABCDEFGHIJKLMNOP", [2, 22, 16, 2, 22, 16, 2, 22, 16, 2, 14, 14, 14, 14, 14, 14]):
+    for col, ancho in zip("ABCDEFGHIJKLMNOP", [2, 22, 14, 2, 22, 14, 2, 22, 14, 2, 22, 14, 2, 14, 14, 14]):
         ws.column_dimensions[col].width = ancho
 
-    ws.merge_cells("B2:I2")
+    ws.merge_cells("B2:L2")
     ws["B2"] = "Reporte de vulnerabilidades CVE"
     ws["B2"].font = Font(size=20, bold=True, color=AZUL)
-    ws.merge_cells("B3:I3")
+    ws.merge_cells("B3:L3")
     ws["B3"] = (f"Periodo: {parametros['Desde']} a {parametros['Hasta']}   ·   "
                 f"Fuentes: {parametros['Fuentes consultadas']}   ·   Generado: {parametros['Generado']}")
     ws["B3"].font = Font(size=10, color=GRIS)
@@ -191,11 +211,15 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
         ("Explotadas activamente", kpis["Explotadas activamente"], "7D3C98"),
         ("Usadas en ransomware", kpis["Usadas en ransomware"], "922B21"),
         ("CVSS promedio", kpis["CVSS promedio"] if kpis["CVSS promedio"] is not None else "—", "2E86C1"),
+        ("Prioridad INMEDIATA", kpis.get("Prioridad inmediata", "—"), COLOR_NIVEL["INMEDIATA"]),
+        ("Afectan al inventario", kpis.get("Afectan al inventario", "—"), "1B5E9C"),
     ]
-    posiciones = [("B", "C"), ("E", "F"), ("H", "I")]
+    orden = [0, 1, 2, 5, 3, 4, 6, 7]  # fila 1: volumen/gravedad · fila 2: explotación/prioridad
+    tarjetas = [tarjetas[i] for i in orden]
+    posiciones = [("B", "C"), ("E", "F"), ("H", "I"), ("K", "L")]
     for i, (titulo, valor, color) in enumerate(tarjetas):
-        fila = 5 + (i // 3) * 3
-        c1, c2 = posiciones[i % 3]
+        fila = 5 + (i // 4) * 3
+        c1, c2 = posiciones[i % 4]
         ws.merge_cells(f"{c1}{fila}:{c2}{fila}")
         ws.merge_cells(f"{c1}{fila + 1}:{c2}{fila + 1}")
         ws[f"{c1}{fila}"] = titulo
@@ -300,6 +324,13 @@ def exportar_excel(
 ) -> Path:
     ruta.parent.mkdir(parents=True, exist_ok=True)
     with pd.ExcelWriter(ruta, engine="openpyxl") as writer:
+        top = resumenes.get("prioridad")
+        if top is not None:
+            cols = [c for c in COLUMNAS_PRIORIDAD if c in top.columns]
+            _hoja_de_datos(writer, top[cols], "Prioridad", "tblPrioridad", estilo="TableStyleMedium3")
+        if resumenes.get("afectaciones") is not None:
+            _hoja_de_datos(writer, resumenes["por_activo"], "Activos", "tblActivos", estilo="TableStyleMedium6")
+            _hoja_de_datos(writer, resumenes["afectaciones"], "Inventario", "tblInventario", estilo="TableStyleMedium6")
         _hoja_de_datos(writer, consolidado, "Consolidado", "tblConsolidado")
         _hoja_de_datos(writer, registros, "Registros", "tblRegistros", estilo="TableStyleMedium9")
         hojas = {
@@ -341,6 +372,8 @@ def exportar(
     if formato in ("csv", "ambos"):
         tablas = {
             "consolidado": consolidado,
+            **({"inventario_afectaciones": resumenes["afectaciones"]}
+               if resumenes.get("afectaciones") is not None else {}),
             "registros": registros,
             "cwe_por_cve": resumenes["cwe_por_cve"],
             "por_mes": resumenes["por_mes"],

@@ -71,3 +71,22 @@ Para que la columna `url` sea clicable: seleccionarla → **Categoría de datos 
 
 1. Correr otra vez el programa (`python main.py ...`).
 2. En Power BI: **Inicio → Actualizar**.
+
+## 6. Conectar Power BI directo al panel en GitHub Pages (sin bajar archivos)
+
+El workflow **Panel diario** publica los CSV todos los días. En Power BI:
+
+1. **Obtener datos → Web** → pegar
+   `https://TU_USUARIO.github.io/cve-explorer/powerbi/consolidado.csv`
+2. Repetir con `registros.csv`, `cwe_por_cve.csv` e `inventario_afectaciones.csv`.
+3. Cada vez que le des a **Actualizar**, Power BI trae los datos de ese día.
+
+Medidas extra para la prioridad:
+
+```DAX
+CVE Inmediatas = CALCULATE ( [Total CVE], consolidado[prioridad_nivel] = "INMEDIATA" )
+
+Prioridad Promedio = AVERAGE ( consolidado[prioridad_puntaje] )
+
+Afectan Inventario = CALCULATE ( [Total CVE], NOT ISBLANK ( consolidado[activos_afectados] ) )
+```

@@ -250,3 +250,25 @@ def indicadores(consolidado: pd.DataFrame, registros: pd.DataFrame) -> dict:
         if consolidado["cvss_puntaje"].notna().any() else None,
         "Registros por fuente": registros["fuente"].value_counts().to_dict(),
     }
+
+
+def completar_desde_nvd(consolidado: pd.DataFrame, extra: pd.DataFrame) -> pd.DataFrame:
+    """Rellena CVSS/severidad/CWE de filas que no los tienen, usando registros extra de la NVD.
+
+    Solo completa datos vacíos: no cambia fechas, fuentes ni conteos.
+    """
+    if consolidado.empty or extra.empty:
+        return consolidado
+    df = consolidado.set_index("cve_id")
+    nvd = extra.drop_duplicates("cve_id").set_index("cve_id")
+    comunes = df.index.intersection(nvd.index)
+    sin_cvss = df.loc[comunes, "cvss_puntaje"].isna()
+    objetivo = sin_cvss[sin_cvss].index
+    for col in ("cvss_puntaje", "cvss_version", "cvss_vector"):
+        df.loc[objetivo, col] = nvd.loc[objetivo, col]
+    nueva_sev = nvd.loc[objetivo, "severidad"].fillna("SIN CALIFICAR")
+    df.loc[objetivo, "severidad"] = nueva_sev
+    df.loc[objetivo, "severidad_orden"] = nueva_sev.map(ORDEN_SEVERIDAD).astype(int)
+    sin_cwe = df.loc[comunes, "cwe"].isna()
+    df.loc[sin_cwe[sin_cwe].index, "cwe"] = nvd.loc[sin_cwe[sin_cwe].index, "cwe"]
+    return df.reset_index()

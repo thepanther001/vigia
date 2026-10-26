@@ -2,6 +2,11 @@
   "name": "CVE Explorer (Python 3.12)",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+  "postAttachCommand": "echo '\n  CVE Explorer listo.\n    python main.py                       -> menú interactivo\n    python main.py --ultimos-dias 30 --fuentes todas\n    python -m http.server 8000 -d output/dashboard   -> ver el panel\n'",
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": { "label": "Panel CVE", "onAutoForward": "openBrowser" }
+  },
   "customizations": {
     "vscode": {
       "extensions": [

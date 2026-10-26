@@ -6,6 +6,7 @@ import argparse
 import sys
 import time
 from datetime import date, datetime
+from pathlib import Path
 from typing import Callable
 
 from cve_explorer import __version__, config
@@ -20,7 +21,9 @@ from cve_explorer.fechas import (
     validar_rango,
 )
 from cve_explorer.fuentes import FUENTES, FuenteBase
+from cve_explorer import alertas, dashboard, inventario as inv, prioridad
 from cve_explorer import procesamiento as proc
+from cve_explorer.fuentes.nvd import FuenteNVD
 
 EJEMPLOS = """
 ejemplos:
@@ -28,7 +31,9 @@ ejemplos:
   python main.py --ultimos-dias 30 --fuentes todas
   python main.py --desde 2025-01-01 --hasta 2025-06-30 --fuentes nvd,kev
   python main.py --desde 2024-01-01 --hasta 2024-12-31 --fuentes kev --formato excel
-  python main.py --ultimos-dias 7 --fuentes nvd,ghsa --epss --limite 500
+  python main.py --ultimos-dias 7 --fuentes nvd,ghsa --limite 500
+  python main.py --ultimos-dias 30 --fuentes todas --inventario inventario/empresa_ejemplo.csv
+  python main.py --ultimos-dias 7 --fuentes kev --alerta-discord --dias-alerta 7
 """
 
 
@@ -50,7 +55,25 @@ def construir_parser() -> argparse.ArgumentParser:
                    help="tipo de exportación (por defecto: ambos)")
     p.add_argument("--salida", default=config.CARPETA_SALIDA, help="carpeta de salida (por defecto: output)")
     p.add_argument("--limite", type=int, metavar="N", help="máximo de registros por fuente (pruebas rápidas)")
-    p.add_argument("--epss", action="store_true", help="agregar probabilidad de explotación EPSS (FIRST.org)")
+    p.add_argument("--sin-epss", dest="epss", action="store_false",
+                   help="no consultar EPSS (probabilidad de explotación, FIRST.org)")
+    p.add_argument("--sin-completar", dest="completar", action="store_false",
+                   help="no completar en la NVD el CVSS de las CVE de CISA KEV")
+
+    extra = p.add_argument_group("análisis y publicación")
+    extra.add_argument("--inventario", metavar="CSV", default=config.INVENTARIO_POR_DEFECTO,
+                       help="inventario de software para ver qué CVE te afectan "
+                            f"(por defecto: {config.INVENTARIO_POR_DEFECTO})")
+    extra.add_argument("--sin-inventario", dest="inventario", action="store_const", const=None,
+                       help="no cruzar con ningún inventario")
+    extra.add_argument("--dashboard", metavar="CARPETA",
+                       help="carpeta del panel web (por defecto: <salida>/dashboard)")
+    extra.add_argument("--sin-dashboard", action="store_true", help="no generar el panel web")
+    extra.add_argument("--alerta-discord", action="store_true",
+                       help="enviar a Discord las CVE nuevas de CISA KEV (usa DISCORD_WEBHOOK_URL)")
+    extra.add_argument("--dias-alerta", type=int, default=1, metavar="N",
+                       help="días hacia atrás para las alertas de Discord (por defecto: 1)")
+    extra.add_argument("--url-panel", metavar="URL", help="link del panel publicado (se incluye en la alerta)")
     p.add_argument("--idioma", choices=["es", "en"], default="es",
                    help="idioma preferido de las descripciones de la NVD (por defecto: es)")
     p.add_argument("--incluir-sin-cve", action="store_true",
@@ -167,7 +190,7 @@ def modo_interactivo(args, entrada: Callable[[str], str] = input, hoy: date | No
     args.formato = {"1": "ambos", "2": "excel", "3": "csv"}.get(_preguntar("    Opción [1]: ", entrada), "ambos")
 
     # 4) Extras
-    args.epss = _preguntar("\n[4] ¿Agregar probabilidad de explotación EPSS? (s/N): ", entrada).lower() in ("s", "si", "sí", "y")
+    args.epss = _preguntar("\n[4] ¿Agregar probabilidad de explotación EPSS? (S/n): ", entrada).lower() not in ("n", "no")
     limite = _preguntar("[5] Máximo de registros por fuente (Enter = sin límite): ", entrada)
     args.limite = int(limite) if limite.isdigit() and int(limite) > 0 else None
     return args
@@ -209,11 +232,40 @@ def ejecutar(args) -> int:
     df_registros = proc.registros_a_df(registros)
     df_consolidado = proc.consolidar(df_registros)
 
+    # 1) Completar CVSS de las CVE de CISA KEV (suelen ser antiguas y no caen en el rango)
+    sin_cvss = df_consolidado.loc[df_consolidado["en_kev"] & df_consolidado["cvss_puntaje"].isna(), "cve_id"].tolist()
+    if args.completar and sin_cvss:
+        print(f"▶ NVD: completando CVSS de {len(sin_cvss)} CVE de CISA KEV")
+        nvd = FuenteNVD(api_key=config.NVD_API_KEY, idioma=args.idioma)
+        extra = proc.registros_a_df(nvd.buscar_por_ids(sin_cvss))
+        df_consolidado = proc.completar_desde_nvd(df_consolidado, extra)
+        advertencias.extend(nvd.advertencias)
+        print(f"  ✔ {extra['cve_id'].nunique()} completadas\n")
+
+    # 2) EPSS: probabilidad de explotación
     if args.epss:
         print("▶ EPSS (FIRST.org)")
         puntajes = ClienteEPSS().obtener(df_consolidado["cve_id"].tolist())
         df_consolidado = proc.agregar_epss(df_consolidado, puntajes)
         print(f"  ✔ {len(puntajes)} CVE con puntaje EPSS\n")
+        if not puntajes:
+            advertencias.append("EPSS no respondió: el índice de prioridad se calculó sin probabilidad.")
+
+    # 3) Índice de prioridad de parcheo
+    df_consolidado = prioridad.agregar_prioridad(df_consolidado)
+
+    # 4) Cruce con el inventario
+    df_afectaciones, df_por_activo, activos, nombre_inv = None, None, [], None
+    if args.inventario:
+        try:
+            activos = inv.cargar(args.inventario)
+            nombre_inv = Path(args.inventario).stem.replace("_", " ").capitalize()
+            df_consolidado, df_afectaciones = inv.cruzar(df_consolidado, activos)
+            df_por_activo = inv.resumen_por_activo(df_afectaciones, activos)
+            print(f"▶ Inventario ({len(activos)} activos): {df_afectaciones['cve_id'].nunique()} CVE los afectan\n")
+        except inv.InventarioError as error:
+            advertencias.append(str(error))
+            print(f"  ! {error}\n")
 
     nombres = [FUENTES[c].nombre for c in claves]
     resumenes = {
@@ -222,8 +274,17 @@ def ejecutar(args) -> int:
         "top_proveedores": proc.tabla_top_proveedores(df_consolidado),
         "top_cwe": proc.tabla_top_cwe(df_consolidado),
         "cwe_por_cve": proc.tabla_cwe_por_cve(df_consolidado),
+        "prioridad": prioridad.top_prioridad(df_consolidado, 100),
+        "niveles": prioridad.resumen_niveles(df_consolidado),
+        "afectaciones": df_afectaciones,
+        "por_activo": df_por_activo,
     }
     kpis = proc.indicadores(df_consolidado, df_registros)
+    niveles = df_consolidado["prioridad_nivel"].value_counts()
+    kpis["Prioridad inmediata"] = int(niveles.get("INMEDIATA", 0))
+    if df_afectaciones is not None:
+        kpis["Afectan al inventario"] = int(df_afectaciones["cve_id"].nunique())
+
     parametros = {
         "Generado": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "Desde": desde.isoformat(),
@@ -231,6 +292,8 @@ def ejecutar(args) -> int:
         "Fuentes consultadas": ", ".join(nombres),
         **{f"Resultado {k}": v for k, v in estado_fuentes.items()},
         "Criterio de fecha": "NVD/GitHub: fecha de publicación · CISA KEV: fecha en que se agregó al catálogo",
+        "Índice de prioridad": "4×CVSS + 25×percentil EPSS + 25 si KEV + 10 si ransomware (pisos: KEV≥60, ransomware≥80, CVSS≥9→≥40)",
+        "Inventario": f"{args.inventario} ({len(activos)} activos)" if activos else "No",
         "Límite por fuente": args.limite or "Sin límite",
         "EPSS": "Sí" if args.epss else "No",
         "Advertencias": " | ".join(advertencias) or "Ninguna",
@@ -240,13 +303,45 @@ def ejecutar(args) -> int:
     rutas = exportar(args.salida, args.formato, desde, hasta, df_registros, df_consolidado,
                      resumenes, kpis, parametros)
 
+    # 5) Panel web
+    if not args.sin_dashboard:
+        datos = dashboard.construir_datos(
+            df_registros, df_consolidado, resumenes, kpis, desde, hasta, nombres, estado_fuentes,
+            dashboard.resumen_inventario(nombre_inv, df_por_activo, df_afectaciones) if activos else None,
+            descargas={},
+        )
+        carpeta_panel = args.dashboard or str(Path(args.salida) / "dashboard")
+        rutas.append(dashboard.generar(carpeta_panel, datos, rutas))
+
+    # 6) Alertas a Discord
+    if args.alerta_discord:
+        nuevas = alertas.nuevas_en_kev(df_registros, df_consolidado, args.dias_alerta)
+        if nuevas.empty:
+            print(f"▶ Discord: sin CVE nuevas en KEV en los últimos {args.dias_alerta} día(s); no se envía nada.")
+        else:
+            try:
+                alertas.ClienteDiscord().enviar(
+                    config.DISCORD_WEBHOOK_URL, alertas.construir_mensaje(nuevas, args.url_panel))
+                print(f"▶ Discord: alerta enviada ({len(nuevas)} CVE).")
+            except (alertas.ErrorAlerta, ErrorFuente) as error:
+                advertencias.append(str(error))
+                print(f"  ! {error}")
+
     print("\n" + "─" * 50)
     print(f"  CVE únicas:              {kpis['CVE únicas']:>8,}")
     print(f"  Críticas:                {kpis['Críticas']:>8,}")
-    print(f"  Altas:                   {kpis['Altas']:>8,}")
     print(f"  Explotadas activamente:  {kpis['Explotadas activamente']:>8,}")
     print(f"  Usadas en ransomware:    {kpis['Usadas en ransomware']:>8,}")
+    print(f"  Prioridad INMEDIATA:     {kpis['Prioridad inmediata']:>8,}")
+    if "Afectan al inventario" in kpis:
+        print(f"  Afectan al inventario:   {kpis['Afectan al inventario']:>8,}")
     print("─" * 50)
+    top = prioridad.top_prioridad(df_consolidado, 5)
+    if len(top):
+        print("Parcha primero:")
+        for r in top.itertuples(index=False):
+            print(f"  {r.prioridad_puntaje:>5.1f}  {r.cve_id:<16} {str(r.titulo or '')[:60]}")
+        print("─" * 50)
     print("Archivos generados:")
     for ruta in rutas:
         print(f"  • {ruta}")

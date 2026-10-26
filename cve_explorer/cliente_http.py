@@ -56,7 +56,7 @@ class ClienteHTTP:
                 resp = self.sesion.get(url, params=params, headers=headers, timeout=TIMEOUT)
             except requests.RequestException as error:
                 if intento == intentos:
-                    raise ErrorFuente(f"{self.nombre}: error de red — {error}") from error
+                    raise ErrorFuente(f"{self.nombre}: sin conexión ({type(error).__name__})") from error
                 self.log(f"   ! {self.nombre}: error de red, reintento {intento}/{intentos - 1} en {espera:.0f}s")
                 self._esperar(espera)
                 espera = min(espera * 2, 120)

@@ -29,5 +29,11 @@ NVD_API_KEY = os.getenv("NVD_API_KEY") or None
 # En GitHub Codespaces la variable GITHUB_TOKEN ya existe automáticamente.
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or None
 
+# Webhook de Discord para alertas (opcional).
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL") or None
+
 # Carpeta de salida por defecto.
 CARPETA_SALIDA = "output"
+
+# Inventario de ejemplo (empresa ficticia) que se cruza con las CVE.
+INVENTARIO_POR_DEFECTO = "inventario/empresa_ejemplo.csv"

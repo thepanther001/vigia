@@ -25,6 +25,9 @@ class ClienteEPSS(ClienteHTTP):
             try:
                 datos = self._get(URL, params={"cve": ",".join(lote), "limit": LOTE}, intentos=3).json()
             except (ErrorFuente, ValueError) as error:
+                if isinstance(error, ErrorFuente) and error.codigo is None:
+                    self.log(f"   ! EPSS no responde; se continúa sin EPSS ({error})")
+                    break
                 self.log(f"   ! EPSS: se omitió un lote ({error})")
                 continue
             for fila in datos.get("data", []):

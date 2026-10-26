@@ -1,0 +1,16 @@
+activo,proveedor,producto,version,criticidad
+Firewall perimetral,Fortinet,FortiOS,7.2.5,Alta
+VPN de acceso remoto,Ivanti,Connect Secure,22.7R2,Alta
+Controlador de dominio,Microsoft,Windows Server,2019,Alta
+Servidor de correo,Microsoft,Exchange Server,2019 CU14,Alta
+Estaciones de trabajo,Microsoft,Windows,11 23H2,Media
+Suite ofimática,Microsoft,Office,2021,Media
+Virtualización,VMware,ESXi,8.0,Alta
+Router de borde,Cisco,IOS XE,17.9,Alta
+Portal web de citas,Apache,HTTP Server,2.4.58,Media
+Sitio web institucional,WordPress,WordPress,6.4,Media
+Base de datos clínica,Oracle,MySQL,8.0,Alta
+Navegador corporativo,Google,Chrome,124,Baja
+Servidor de archivos,Linux,Linux Kernel,6.1,Media
+Acceso remoto a servidores,Citrix,NetScaler ADC,13.1,Alta
+Respaldo,Veeam,Backup & Replication,12,Alta

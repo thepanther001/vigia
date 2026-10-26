@@ -13,6 +13,7 @@ from datetime import date
 from typing import Optional
 from urllib.parse import urlencode
 
+from cve_explorer.cliente_http import ErrorFuente
 from cve_explorer.fechas import dividir_rango
 from cve_explorer.fuentes.base import FuenteBase
 from cve_explorer.modelo import (
@@ -131,6 +132,37 @@ class FuenteNVD(FuenteBase):
     def _es_limite_de_tasa(self, resp) -> bool:
         # La NVD responde 403 (no solo 429) cuando se excede el límite.
         return resp.status_code in (403, 429)
+
+    def buscar_por_ids(self, cve_ids: list[str], maximo: Optional[int] = None) -> list[Registro]:
+        """Consulta CVE puntuales (parámetro cveId). Se usa para completar el CVSS
+        de las CVE de CISA KEV, que suelen ser antiguas y no caen en el rango de fechas."""
+        if maximo is None:
+            maximo = 300 if self.api_key else 40
+        ids = list(dict.fromkeys(c for c in cve_ids if c and c.startswith("CVE-")))
+        if len(ids) > maximo:
+            self._avisar(
+                f"NVD: solo se completaron {maximo} de {len(ids)} CVE de KEV sin CVSS "
+                "(con NVD_API_KEY el límite sube a 300)."
+            )
+            ids = ids[:maximo]
+        headers = {"apiKey": self.api_key} if self.api_key else None
+        registros: list[Registro] = []
+        for n, cve_id in enumerate(ids, start=1):
+            try:
+                datos = self._get(URL, params={"cveId": cve_id}, headers=headers, intentos=3).json()
+            except ErrorFuente as error:
+                if error.codigo is None:  # sin conexión: no tiene sentido seguir intentando
+                    self._avisar(f"NVD no responde; no se pudo completar el CVSS de KEV ({error}).")
+                    break
+                self.log(f"   ! NVD {cve_id}: {error}")  # una CVE que falla no detiene el resto
+                continue
+            for item in datos.get("vulnerabilities", []):
+                registros.append(parsear_cve(item.get("cve", {}), self.idioma))
+            if n % 10 == 0 or n == len(ids):
+                self.log(f"   NVD (completando KEV): {n}/{len(ids)}")
+            if n < len(ids):
+                self._esperar(self.pausa)
+        return registros
 
     def consultar(self, desde: date, hasta: date) -> list[Registro]:
         headers = {"apiKey": self.api_key} if self.api_key else None
