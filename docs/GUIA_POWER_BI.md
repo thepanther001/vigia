@@ -77,7 +77,7 @@ Para que la columna `url` sea clicable: seleccionarla → **Categoría de datos 
 El workflow **Panel diario** publica los CSV todos los días. En Power BI:
 
 1. **Obtener datos → Web** → pegar
-   `https://TU_USUARIO.github.io/vigia/powerbi/consolidado.csv`
+   `https://thepanther001.github.io/vigia/powerbi/consolidado.csv`
 2. Repetir con `registros.csv`, `cwe_por_cve.csv` e `inventario_afectaciones.csv`.
 3. Cada vez que le des a **Actualizar**, Power BI trae los datos de ese día.
 

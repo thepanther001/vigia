@@ -2,11 +2,11 @@
 
 **Vigilancia y priorización de vulnerabilidades CVE**
 
-[![Abrir en GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/TU_USUARIO/vigia)
+[![Abrir en GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/thepanther001/vigia)
 
-![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Pruebas](https://github.com/TU_USUARIO/vigia/actions/workflows/pruebas.yml/badge.svg) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Pruebas](https://github.com/thepanther001/vigia/actions/workflows/pruebas.yml/badge.svg) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
 
-**Panel en vivo:** https://TU_USUARIO.github.io/vigia/ (se actualiza solo todos los días)
+**Panel en vivo:** https://thepanther001.github.io/vigia/ (se actualiza solo todos los días)
 
 Programa en Python que **consulta vulnerabilidades CVE en varias bases de datos**,
 permite elegir el **rango de fechas (dentro de los últimos 5 años)** y las **fuentes**,
@@ -109,7 +109,7 @@ python -m http.server 8000 -d output/dashboard   # ver el panel (se abre en el n
 ## Instalación local
 
 ```bash
-git clone https://github.com/TU_USUARIO/vigia.git
+git clone https://github.com/thepanther001/vigia.git
 cd vigia
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
@@ -192,7 +192,7 @@ python main.py --ultimos-dias 7 --fuentes kev --alerta-discord --dias-alerta 7
 3. **Actions → Panel diario → Run workflow**.
 
 El panel publica también el Excel y los CSV, así que **Power BI puede conectarse por URL**
-(*Obtener datos → Web →* `https://TU_USUARIO.github.io/vigia/powerbi/consolidado.csv`)
+(*Obtener datos → Web →* `https://thepanther001.github.io/vigia/powerbi/consolidado.csv`)
 y con **Actualizar** trae los datos del día. Ver [docs/GUIA_POWER_BI.md](docs/GUIA_POWER_BI.md).
 
 ---
