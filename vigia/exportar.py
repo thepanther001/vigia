@@ -27,23 +27,30 @@ from vigia import __version__
 from vigia.procesamiento import serie_temporal
 
 # Paleta del reporte
-AZUL = "1B2B48"
-AZUL_CLARO = "E8EEF7"
-GRIS = "6B7280"
+# Paleta Vigía (la misma del panel web). El naranja significa "se está explotando".
+AZUL = "1B2B48"          # azul marino de la marca
+AZUL_MARCA = "2A78D6"
+AZUL_CLARO = "F4F6F9"
+GRIS = "6B7486"
+NARANJA = "EB6834"
+NARANJA_TEXTO = "B8461C"
+TEXTO_CLARO = "C9D6EA"   # texto secundario sobre azul marino
 COLOR_NIVEL = {
-    "INMEDIATA": "C0392B",
-    "URGENTE": "E67E22",
-    "PLANIFICADA": "F1C40F",
-    "RUTINA": "BDC3C7",
+    "INMEDIATA": "EB6834",
+    "URGENTE": "2A78D6",
+    "PLANIFICADA": "8DA9CF",
+    "RUTINA": "C3CAD5",
 }
+# Severidad en escala de azules: más oscuro = más grave
 COLOR_SEVERIDAD = {
-    "CRÍTICA": "C0392B",
-    "ALTA": "E67E22",
-    "MEDIA": "F1C40F",
-    "BAJA": "27AE60",
-    "NINGUNA": "95A5A6",
-    "SIN CALIFICAR": "BDC3C7",
+    "CRÍTICA": "1B2B48",
+    "ALTA": "2A5FA8",
+    "MEDIA": "4F8FDB",
+    "BAJA": "A9C8EE",
+    "NINGUNA": "C9CFD8",
+    "SIN CALIFICAR": "C9CFD8",
 }
+TEXTO_BLANCO = {"CRÍTICA", "ALTA", "MEDIA", "INMEDIATA", "URGENTE"}
 
 ANCHOS = {
     "cve_id": 17, "fuente": 15, "id_fuente": 21, "titulo": 50, "descripcion": 90,
@@ -53,7 +60,7 @@ ANCHOS = {
     "ecosistema": 14, "cwe": 22, "explotada_activamente": 11, "ransomware": 12,
     "en_nvd": 8, "en_kev": 8, "en_github": 9, "num_fuentes": 9, "fuentes": 32,
     "estado": 24, "url": 45, "epss": 9, "epss_percentil": 10,
-    "prioridad_puntaje": 10, "prioridad_nivel": 14, "prioridad_plazo": 16, "prioridad_motivo": 60,
+    "prioridad_puntaje": 16, "prioridad_nivel": 14, "prioridad_plazo": 16, "prioridad_motivo": 60,
     "activos_afectados": 30, "activo": 28, "criticidad_activo": 11, "version_instalada": 14,
     "explotadas": 11, "prioridad_max": 12,
 }
@@ -172,13 +179,19 @@ def _hoja_de_datos(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, estil
             letra = get_column_letter(columnas.index(col_color) + 1)
             zona = f"{letra}2:{letra}{len(df) + 1}"
             for valor, color in mapa.items():
-                blanco = valor in ("CRÍTICA", "ALTA", "INMEDIATA", "URGENTE")
                 ws.conditional_formatting.add(
                     zona,
                     CellIsRule(operator="equal", formula=[f'"{valor}"'],
                                fill=PatternFill("solid", fgColor=color),
-                               font=Font(bold=True, color="FFFFFF" if blanco else "1F2937")),
+                               font=Font(bold=True, color="FFFFFF" if valor in TEXTO_BLANCO else "14213A")),
                 )
+        # "Explotada: Sí" en naranja, como en el panel
+        if "explotada_activamente" in columnas:
+            letra = get_column_letter(columnas.index("explotada_activamente") + 1)
+            ws.conditional_formatting.add(
+                f"{letra}2:{letra}{len(df) + 1}",
+                CellIsRule(operator="equal", formula=['"Sí"'], font=Font(bold=True, color=NARANJA_TEXTO)),
+            )
     return ws
 
 
@@ -204,9 +217,9 @@ def _tabla_simple(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, anchos
 # Identidad Vigía: Inter para todo el contenido de Excel. Si la PC no la tiene
 # instalada, Excel usa su fuente por defecto sin dañar nada.
 FUENTE = "Inter"
-LOGO_EXCEL = Path(__file__).parent / "plantillas" / "logo-excel.png"
+LOGO_EXCEL_BLANCO = Path(__file__).parent / "plantillas" / "logo-excel-blanco.png"
 
-COLOR_FUENTE = {"NVD": "2A78D6", "CISA KEV": "EB6834", "GitHub Advisory": "1BAF7A"}
+COLOR_FUENTE = {"NVD": "2A78D6", "CISA KEV": "EB6834", "GitHub Advisory": "1B2B48"}
 GRIS_LINEA = "E5E7EB"
 ALTO_GRAFICO = 7.6      # cm (≈ 14 filas de 15 pt)
 ANCHO_COMPLETO = 29.0   # cm (columnas B a L)
@@ -287,67 +300,78 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
     for col, ancho in zip("ABCDEFGHIJKLM", [2, 24, 13, 2, 24, 13, 2, 24, 13, 2, 24, 13, 2]):
         ws.column_dimensions[col].width = ancho
 
-    # --- Encabezado: logo + título
-    ws.row_dimensions[2].height = 30
-    ws.row_dimensions[3].height = 18
-    if LOGO_EXCEL.exists():
+    # --- Franja de guardia (azul marino), igual que el panel web
+    franja = PatternFill("solid", fgColor=AZUL)
+    for fila in range(1, 10):
+        for col in "ABCDEFGHIJKLM":
+            ws[f"{col}{fila}"].fill = franja
+    for fila, alto in {1: 10, 2: 36, 3: 10, 4: 20, 5: 34, 6: 34, 7: 22, 8: 20, 9: 12}.items():
+        ws.row_dimensions[fila].height = alto
+
+    logo_ok = False
+    if LOGO_EXCEL_BLANCO.exists():
         try:
-            logo = ImagenExcel(str(LOGO_EXCEL))  # necesita Pillow
-            logo.height = 48
-            logo.width = round(48 * 2.69)
+            logo = ImagenExcel(str(LOGO_EXCEL_BLANCO))  # necesita Pillow
+            logo.height = 40
+            logo.width = round(40 * 2.69)
             ws.add_image(logo, "B2")
+            logo_ok = True
         except ImportError:
-            ws["B2"] = "Vigía"
-            ws["B2"].font = Font(name=FUENTE, size=18, bold=True, color="2A78D6")
-    ws.merge_cells("C2:L2")
-    ws["C2"] = "Reporte de vulnerabilidades CVE"
-    ws["C2"].font = Font(name=FUENTE, size=18, bold=True, color=AZUL)
-    ws["C2"].alignment = Alignment(vertical="center")
-    ws.merge_cells("C3:L3")
-    ws["C3"] = (f"Periodo: {parametros['Desde']} a {parametros['Hasta']}   ·   "
-                f"Fuentes: {parametros['Fuentes consultadas']}   ·   Generado: {parametros['Generado']}")
-    ws["C3"].font = Font(name=FUENTE, size=10, color=GRIS)
+            pass
+    if not logo_ok:
+        ws["B2"] = "Vigía"
+        ws["B2"].font = Font(name=FUENTE, size=18, bold=True, color="FFFFFF")
+    ws.merge_cells("H2:L2")
+    ws["H2"] = f"Revisado {parametros['Generado']}"
+    ws["H2"].font = Font(name=FUENTE, size=10, color=TEXTO_CLARO)
+    ws["H2"].alignment = Alignment(horizontal="right", vertical="center")
 
-    # --- Indicadores (2 filas de 4 tarjetas)
-    tarjetas = [
-        ("CVE únicas", kpis["CVE únicas"], AZUL),
-        ("Críticas", kpis["Críticas"], COLOR_SEVERIDAD["CRÍTICA"]),
-        ("Altas", kpis["Altas"], COLOR_SEVERIDAD["ALTA"]),
-        ("CVSS promedio", kpis["CVSS promedio"] if kpis["CVSS promedio"] is not None else "—", "2E86C1"),
-        ("Explotadas activamente", kpis["Explotadas activamente"], "7D3C98"),
-        ("Usadas en ransomware", kpis["Usadas en ransomware"], "922B21"),
-        ("Prioridad INMEDIATA", kpis.get("Prioridad inmediata", "—"), COLOR_NIVEL["INMEDIATA"]),
-        ("Afectan al inventario", kpis.get("Afectan al inventario", "—"), "1B5E9C"),
+    ws.merge_cells("B4:G4")
+    ws["B4"] = f"Parte de vigilancia del {parametros['Desde']} al {parametros['Hasta']}"
+    ws["B4"].font = Font(name=FUENTE, size=11, color="9FB3D1")
+
+    inmediatas = kpis.get("Prioridad inmediata")
+    urgentes = kpis.get("Prioridad urgente")
+    if isinstance(inmediatas, int) and inmediatas > 0:
+        verbo = "vulnerabilidad pide" if inmediatas == 1 else "vulnerabilidades piden"
+        ws.merge_cells("B5:B6")
+        ws["B5"] = inmediatas
+        ws["B5"].number_format = "#,##0"
+        ws["B5"].font = Font(name=FUENTE, size=40, bold=True, color=NARANJA)
+        ws["B5"].alignment = Alignment(horizontal="right", vertical="center", indent=1)
+        ws.merge_cells("C5:G6")
+        ws["C5"] = f"{verbo} corrección inmediata."
+    else:
+        ws.merge_cells("B5:G6")
+        ws["B5"] = "Nada urgente para corregir hoy."
+    celda_titulo = ws["C5"] if isinstance(inmediatas, int) and inmediatas > 0 else ws["B5"]
+    celda_titulo.font = Font(name=FUENTE, size=20, bold=True, color="FFFFFF")
+    celda_titulo.alignment = Alignment(vertical="center", wrap_text=True)
+    if isinstance(urgentes, int) and urgentes:
+        ws.merge_cells("B7:G7")
+        ws["B7"] = f"Después vienen {urgentes:,} para corregir esta semana."
+        ws["B7"].font = Font(name=FUENTE, size=11, color=TEXTO_CLARO)
+    ws.merge_cells("B8:G8")
+    ws["B8"] = "Registros: " + ", ".join(f"{f} {n:,}" for f, n in kpis["Registros por fuente"].items())
+    ws["B8"].font = Font(name=FUENTE, size=10, color="9FB3D1")
+
+    resumen = [
+        (kpis["CVE únicas"], "CVE publicadas en el periodo", "FFFFFF"),
+        (kpis["Explotadas activamente"], "explotadas activamente según CISA", NARANJA),
+        (kpis["Críticas"], f"críticas y {kpis['Altas']:,} altas", "FFFFFF"),
+        (kpis.get("Afectan al inventario", "—"), "afectan el inventario de la organización", "FFFFFF"),
     ]
-    posiciones = [("B", "C"), ("E", "F"), ("H", "I"), ("K", "L")]
-    for i, (titulo, valor, color) in enumerate(tarjetas):
-        fila = 5 + (i // 4) * 3
-        c1, c2 = posiciones[i % 4]
-        ws.merge_cells(f"{c1}{fila}:{c2}{fila}")
-        ws.merge_cells(f"{c1}{fila + 1}:{c2}{fila + 1}")
-        ws[f"{c1}{fila}"] = titulo
-        ws[f"{c1}{fila}"].font = Font(name=FUENTE, size=10, color=GRIS, bold=True)
-        ws[f"{c1}{fila}"].alignment = Alignment(horizontal="left", vertical="bottom", indent=1)
-        celda = ws[f"{c1}{fila + 1}"]
-        celda.value = valor
-        celda.font = Font(name=FUENTE, size=22, bold=True, color=color)
-        celda.alignment = Alignment(horizontal="left", vertical="center", indent=1)
-        celda.number_format = "0.00" if isinstance(valor, float) else "#,##0"
-        ws.row_dimensions[fila + 1].height = 34
-        for f in (fila, fila + 1):
-            ws[f"{c1}{f}"].border = Border(left=Side(style="thick", color=color))
-            for c in (c1, c2):
-                ws[f"{c}{f}"].fill = PatternFill("solid", fgColor=AZUL_CLARO)
-
-    # --- Registros por fuente (tabla pequeña, filas 12-15; los gráficos empiezan en la 18)
-    ws["B12"] = "Registros por fuente"
-    ws["B12"].font = Font(name=FUENTE, bold=True, color=AZUL)
-    for j, (fuente, n) in enumerate(kpis["Registros por fuente"].items(), start=1):
-        ws[f"B{12 + j}"] = fuente
-        ws[f"C{12 + j}"] = n
-        ws[f"B{12 + j}"].font = ws[f"C{12 + j}"].font = Font(name=FUENTE, size=10)
-        ws[f"C{12 + j}"].number_format = "#,##0"
-        ws[f"C{12 + j}"].alignment = Alignment(horizontal="right")
+    for i, (valor, texto, color) in enumerate(resumen):
+        fila = 4 + i
+        ws[f"I{fila}"] = valor
+        ws[f"I{fila}"].number_format = "#,##0"
+        ws[f"I{fila}"].font = Font(name=FUENTE, size=15, bold=True, color=color)
+        ws[f"I{fila}"].alignment = Alignment(horizontal="right", vertical="center", indent=1)
+        ws.merge_cells(f"J{fila}:L{fila}")
+        ws[f"J{fila}"] = texto
+        ws[f"J{fila}"].font = Font(name=FUENTE, size=10, color=TEXTO_CLARO)
+        ws[f"J{fila}"].alignment = Alignment(vertical="center")
+        ws[f"H{fila}"].border = Border(right=Side(style="thin", color="3A4E73"))
 
     # --- 1) Tendencia (ancho completo)
     t = hojas["Tendencia"]
@@ -382,27 +406,43 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
         g.x_axis.tickMarkSkip = max(1, puntos // 12)
         g.y_axis.majorGridlines = _lineas_suaves()
         g.y_axis.number_format = "#,##0"
-        ws.add_chart(g, "B18")
+        ws.add_chart(g, "B11")
 
     # --- 2) Severidad y nivel de prioridad
     sev = hojas["Por_Severidad"]
     if sev.max_row > 1:
-        colores = [COLOR_SEVERIDAD.get(sev.cell(row=i, column=1).value, "999999") for i in range(2, sev.max_row + 1)]
-        ws.add_chart(_barras_horizontales(sev, "CVE por severidad (CVSS)", 1, 2, sev.max_row - 1, colores), "B35")
+        colores = [COLOR_SEVERIDAD.get(str(sev.cell(row=i, column=1).value).upper(), "999999") for i in range(2, sev.max_row + 1)]
+        ws.add_chart(_barras_horizontales(sev, "CVE por severidad (CVSS)", 1, 2, sev.max_row - 1, colores), "B28")
     niv = hojas.get("Por_Prioridad")
     if niv is not None and niv.max_row > 1:
-        colores = [COLOR_NIVEL.get(niv.cell(row=i, column=1).value, "999999") for i in range(2, niv.max_row + 1)]
-        ws.add_chart(_barras_horizontales(niv, "CVE por nivel de prioridad", 1, 3, niv.max_row - 1, colores), "H35")
+        colores = [COLOR_NIVEL.get(str(niv.cell(row=i, column=1).value).upper(), "999999") for i in range(2, niv.max_row + 1)]
+        ws.add_chart(_barras_horizontales(niv, "CVE por plazo de corrección", 1, 3, niv.max_row - 1, colores), "H28")
 
     # --- 3) Proveedores y debilidades
     prov = hojas["Top_Proveedores"]
     if prov.max_row > 1:
-        ws.add_chart(_barras_horizontales(prov, "Proveedores con más CVE", 1, 2, min(prov.max_row - 1, 10)), "B52")
+        ws.add_chart(_barras_horizontales(prov, "Proveedores con más CVE", 1, 2, min(prov.max_row - 1, 10)), "B45")
     cwe = hojas["Top_CWE"]
     if cwe.max_row > 1:
         ws.add_chart(_barras_horizontales(cwe, "Debilidades (CWE) más comunes", 4, 3, min(cwe.max_row - 1, 10),
-                                          color="2E86C1"), "H52")
+                                          color="2A5FA8"), "H45")
     return ws
+
+
+def _capitalizar(df: pd.DataFrame, columna: str) -> pd.DataFrame:
+    """'CRÍTICA' -> 'Crítica' para que el gráfico no grite en mayúsculas."""
+    df = df.copy()
+    df[columna] = df[columna].astype(str).str.capitalize()
+    return df
+
+
+def _fuente_por_defecto(wb) -> None:
+    """Inter en todo el libro (la fuente 0 es la que usan las celdas sin formato propio)."""
+    try:
+        normal = wb._fonts[0]
+        wb._fonts[0] = Font(name=FUENTE, size=10, family=normal.family, scheme=None)
+    except (AttributeError, IndexError, TypeError):
+        pass
 
 
 def _cwe_con_etiqueta(top_cwe: pd.DataFrame) -> pd.DataFrame:
@@ -424,7 +464,7 @@ def _tabla_tendencia(registros: pd.DataFrame, desde: date, hasta: date) -> pd.Da
     columna = "Día" if serie["granularidad"] == "día" else "Mes"
     df = pd.DataFrame({columna: serie["etiquetas"], **serie["series"]})
     if columna == "Día":
-        df[columna] = df[columna].str[5:]  # 2026-10-05 -> 10-05
+        df[columna] = pd.to_datetime(df[columna]).map(lambda d: f"{d.day}/{d.month}")  # 2026-10-05 -> 5/10
     return df
 
 
@@ -445,16 +485,16 @@ def exportar_excel(
         top = resumenes.get("prioridad")
         if top is not None:
             cols = [c for c in COLUMNAS_PRIORIDAD if c in top.columns]
-            _hoja_de_datos(writer, top[cols], "Prioridad", "tblPrioridad", estilo="TableStyleMedium3")
+            _hoja_de_datos(writer, top[cols], "Prioridad", "tblPrioridad", estilo="TableStyleMedium2")
         if resumenes.get("afectaciones") is not None:
-            _hoja_de_datos(writer, resumenes["por_activo"], "Activos", "tblActivos", estilo="TableStyleMedium6")
-            _hoja_de_datos(writer, resumenes["afectaciones"], "Inventario", "tblInventario", estilo="TableStyleMedium6")
+            _hoja_de_datos(writer, resumenes["por_activo"], "Activos", "tblActivos", estilo="TableStyleMedium2")
+            _hoja_de_datos(writer, resumenes["afectaciones"], "Inventario", "tblInventario", estilo="TableStyleMedium2")
         _hoja_de_datos(writer, consolidado, "Consolidado", "tblConsolidado")
-        _hoja_de_datos(writer, registros, "Registros", "tblRegistros", estilo="TableStyleMedium9")
+        _hoja_de_datos(writer, registros, "Registros", "tblRegistros", estilo="TableStyleLight9")
         hojas = {
             "Por_Mes": _tabla_simple(writer, resumenes["por_mes"], "Por_Mes", "tblPorMes",
                                      [10] + [16] * (len(resumenes["por_mes"].columns) - 1)),
-            "Por_Severidad": _tabla_simple(writer, resumenes["por_severidad"], "Por_Severidad", "tblSeveridad",
+            "Por_Severidad": _tabla_simple(writer, _capitalizar(resumenes["por_severidad"], "Severidad"), "Por_Severidad", "tblSeveridad",
                                            [16, 12, 12], {"Porcentaje": "0.0%"}),
             "Top_Proveedores": _tabla_simple(writer, resumenes["top_proveedores"], "Top_Proveedores",
                                              "tblProveedores", [30, 10, 10, 12]),
@@ -464,12 +504,13 @@ def exportar_excel(
                                        "tblTendencia", [12, 14, 14, 16]),
         }
         if resumenes.get("niveles") is not None:
-            hojas["Por_Prioridad"] = _tabla_simple(writer, resumenes["niveles"], "Por_Prioridad", "tblPrioridadNiveles",
+            hojas["Por_Prioridad"] = _tabla_simple(writer, _capitalizar(resumenes["niveles"], "Nivel"), "Por_Prioridad", "tblPrioridadNiveles",
                                                    [16, 26, 10])
         param = pd.DataFrame({"Parámetro": list(parametros.keys()), "Valor": [str(v) for v in parametros.values()]})
         _tabla_simple(writer, param, "Parametros", "tblParametros", [28, 100])
 
         wb = writer.book
+        _fuente_por_defecto(wb)
         _hoja_resumen(wb, kpis, parametros, hojas)
         wb.active = 0
         wb.properties.title = "Vigía · Reporte de vulnerabilidades CVE"

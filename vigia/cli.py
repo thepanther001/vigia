@@ -282,6 +282,7 @@ def ejecutar(args) -> int:
     kpis = proc.indicadores(df_consolidado, df_registros)
     niveles = df_consolidado["prioridad_nivel"].value_counts()
     kpis["Prioridad inmediata"] = int(niveles.get("INMEDIATA", 0))
+    kpis["Prioridad urgente"] = int(niveles.get("URGENTE", 0))
     if df_afectaciones is not None:
         kpis["Afectan al inventario"] = int(df_afectaciones["cve_id"].nunique())
 

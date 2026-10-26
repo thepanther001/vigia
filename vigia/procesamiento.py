@@ -193,6 +193,8 @@ def tabla_por_mes(registros: pd.DataFrame, consolidado: pd.DataFrame, desde: dat
 
 def tabla_por_severidad(consolidado: pd.DataFrame) -> pd.DataFrame:
     conteo = consolidado["severidad"].value_counts().reindex(SEVERIDADES, fill_value=0)
+    if conteo.get("NINGUNA", 0) == 0:  # casi nunca hay CVSS 0.0; no ocupar una fila vacía
+        conteo = conteo.drop("NINGUNA")
     total = int(conteo.sum())
     return pd.DataFrame({
         "Severidad": conteo.index,
