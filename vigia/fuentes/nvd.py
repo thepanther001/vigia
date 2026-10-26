@@ -13,10 +13,10 @@ from datetime import date
 from typing import Optional
 from urllib.parse import urlencode
 
-from cve_explorer.cliente_http import ErrorFuente
-from cve_explorer.fechas import dividir_rango
-from cve_explorer.fuentes.base import FuenteBase
-from cve_explorer.modelo import (
+from vigia.cliente_http import ErrorFuente
+from vigia.fechas import dividir_rango
+from vigia.fuentes.base import FuenteBase
+from vigia.modelo import (
     FUENTE_NVD,
     Registro,
     fecha_iso,

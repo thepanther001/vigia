@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Iterator
 
-from cve_explorer.config import MAX_ANIOS
+from vigia.config import MAX_ANIOS
 
 
 class RangoFechasError(ValueError):

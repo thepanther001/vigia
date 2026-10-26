@@ -4,10 +4,10 @@ Para agregar una fuente nueva: crear su módulo heredando de FuenteBase
 y añadirla al diccionario FUENTES.
 """
 
-from cve_explorer.fuentes.base import FuenteBase
-from cve_explorer.fuentes.cisa_kev import FuenteCISAKEV
-from cve_explorer.fuentes.github_advisory import FuenteGitHub
-from cve_explorer.fuentes.nvd import FuenteNVD
+from vigia.fuentes.base import FuenteBase
+from vigia.fuentes.cisa_kev import FuenteCISAKEV
+from vigia.fuentes.github_advisory import FuenteGitHub
+from vigia.fuentes.nvd import FuenteNVD
 
 FUENTES: dict[str, type[FuenteBase]] = {
     FuenteNVD.clave: FuenteNVD,

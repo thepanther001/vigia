@@ -3,10 +3,10 @@ from datetime import date
 import pytest
 
 from conftest import RespuestaFalsa, SesionFalsa, cargar, sin_esperas
-from cve_explorer.cliente_http import ErrorFuente
-from cve_explorer.fuentes.cisa_kev import FuenteCISAKEV
-from cve_explorer.fuentes.github_advisory import FuenteGitHub, parsear_advisory
-from cve_explorer.fuentes.nvd import FuenteNVD, parsear_cve
+from vigia.cliente_http import ErrorFuente
+from vigia.fuentes.cisa_kev import FuenteCISAKEV
+from vigia.fuentes.github_advisory import FuenteGitHub, parsear_advisory
+from vigia.fuentes.nvd import FuenteNVD, parsear_cve
 
 # ---------------------------------------------------------------- NVD
 

@@ -13,10 +13,10 @@ try:
 except ImportError:  # python-dotenv es opcional
     pass
 
-from cve_explorer import __version__
+from vigia import __version__
 
 # Identificación del programa ante las APIs (buena práctica: no ir "anónimo").
-USER_AGENT = f"CVE-Explorer/{__version__} (proyecto academico; python-requests)"
+USER_AGENT = f"Vigia/{__version__} (proyecto academico; python-requests)"
 
 # Tiempo máximo de espera por solicitud HTTP (segundos).
 TIMEOUT = 60

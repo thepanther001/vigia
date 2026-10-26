@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import Optional
 
-from cve_explorer.cliente_http import ClienteHTTP
-from cve_explorer.modelo import Registro
+from vigia.cliente_http import ClienteHTTP
+from vigia.modelo import Registro
 
 
 class FuenteBase(ClienteHTTP, ABC):

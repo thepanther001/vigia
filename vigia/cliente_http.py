@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 import requests
 
-from cve_explorer.config import TIMEOUT, USER_AGENT
+from vigia.config import TIMEOUT, USER_AGENT
 
 
 class ErrorFuente(Exception):

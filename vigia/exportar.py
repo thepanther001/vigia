@@ -15,7 +15,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-from cve_explorer import __version__
+from vigia import __version__
 
 # Paleta del reporte
 AZUL = "1B2B48"
@@ -197,7 +197,7 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
         ws.column_dimensions[col].width = ancho
 
     ws.merge_cells("B2:L2")
-    ws["B2"] = "Reporte de vulnerabilidades CVE"
+    ws["B2"] = "Vigía · Reporte de vulnerabilidades CVE"
     ws["B2"].font = Font(size=20, bold=True, color=AZUL)
     ws.merge_cells("B3:L3")
     ws["B3"] = (f"Periodo: {parametros['Desde']} a {parametros['Hasta']}   ·   "
@@ -349,7 +349,7 @@ def exportar_excel(
         _hoja_resumen(wb, kpis, parametros, hojas)
         wb.active = 0
         wb.properties.title = "Reporte de vulnerabilidades CVE"
-        wb.properties.creator = f"CVE Explorer {__version__}"
+        wb.properties.creator = f"Vigía {__version__}"
     return ruta
 
 

@@ -5,11 +5,11 @@ import pytest
 from openpyxl import load_workbook
 
 from conftest import cargar
-from cve_explorer import procesamiento as proc
-from cve_explorer.exportar import exportar
-from cve_explorer.fuentes.cisa_kev import parsear_kev
-from cve_explorer.fuentes.github_advisory import parsear_advisory
-from cve_explorer.fuentes.nvd import parsear_cve
+from vigia import procesamiento as proc
+from vigia.exportar import exportar
+from vigia.fuentes.cisa_kev import parsear_kev
+from vigia.fuentes.github_advisory import parsear_advisory
+from vigia.fuentes.nvd import parsear_cve
 
 DESDE, HASTA = date(2025, 1, 1), date(2025, 3, 31)
 

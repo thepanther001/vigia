@@ -16,8 +16,8 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from cve_explorer.cliente_http import ClienteHTTP, ErrorFuente
-from cve_explorer.modelo import FUENTE_KEV
+from vigia.cliente_http import ClienteHTTP, ErrorFuente
+from vigia.modelo import FUENTE_KEV
 
 PATRON_WEBHOOK = re.compile(r"^https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$")
 MAX_ALERTAS = 10  # Discord acepta hasta 10 "embeds" por mensaje
@@ -90,7 +90,7 @@ def construir_mensaje(nuevas: pd.DataFrame, url_panel: str | None = None) -> dic
     if url_panel:
         encabezado += f"\nPanel completo: {url_panel}"
     return {
-        "username": "CVE Explorer",
+        "username": "Vigía",
         "content": encabezado,
         "embeds": embeds,
         "allowed_mentions": {"parse": []},  # nunca notificar a @everyone / roles

@@ -1,4 +1,4 @@
-"""Punto de entrada de CVE Explorer.
+"""Punto de entrada de Vigía.
 
 Uso rápido:
     python main.py            -> menú interactivo
@@ -7,7 +7,7 @@ Uso rápido:
 
 import sys
 
-from cve_explorer.cli import main
+from vigia.cli import main
 
 if __name__ == "__main__":
     sys.exit(main())

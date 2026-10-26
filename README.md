@@ -1,10 +1,12 @@
-# CVE Explorer
+# Vigía
 
-[![Abrir en GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/TU_USUARIO/cve-explorer)
+**Vigilancia y priorización de vulnerabilidades CVE**
 
-![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Pruebas](https://github.com/TU_USUARIO/cve-explorer/actions/workflows/pruebas.yml/badge.svg) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+[![Abrir en GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/TU_USUARIO/vigia)
 
-**Panel en vivo:** https://TU_USUARIO.github.io/cve-explorer/ (se actualiza solo todos los días)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![Pruebas](https://github.com/TU_USUARIO/vigia/actions/workflows/pruebas.yml/badge.svg) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+
+**Panel en vivo:** https://TU_USUARIO.github.io/vigia/ (se actualiza solo todos los días)
 
 Programa en Python que **consulta vulnerabilidades CVE en varias bases de datos**,
 permite elegir el **rango de fechas (dentro de los últimos 5 años)** y las **fuentes**,
@@ -22,7 +24,7 @@ cuando CISA confirma una vulnerabilidad nueva explotada.
 
 ## Qué hace diferente
 
-| Lo normal | CVE Explorer |
+| Lo normal | Vigía |
 |---|---|
 | Baja CVE de una fuente | Consolida **3 fuentes** (NVD, CISA KEV, GitHub) + **EPSS**, una fila por CVE |
 | Ordena por CVSS | **Índice de prioridad** explicable: dice *por qué* y *en cuánto tiempo* corregir |
@@ -69,7 +71,7 @@ detecta ataques), así que el programa **completa su CVSS consultando la NVD por
 Miles de CVE tienen CVSS alto y nunca se explotan; CISA (BOD 22-01) pide corregir primero
 lo que ya se está explotando. Por eso el índice suma gravedad, probabilidad (EPSS) y explotación
 real (KEV). Cada CVE trae una columna **Motivo** que explica su puntaje.
-La fórmula está en `cve_explorer/prioridad.py` y sus pesos se pueden ajustar.
+La fórmula está en `vigia/prioridad.py` y sus pesos se pueden ajustar.
 
 ## Inventario: ¿qué me afecta?
 
@@ -107,8 +109,8 @@ python -m http.server 8000 -d output/dashboard   # ver el panel (se abre en el n
 ## Instalación local
 
 ```bash
-git clone https://github.com/TU_USUARIO/cve-explorer.git
-cd cve-explorer
+git clone https://github.com/TU_USUARIO/vigia.git
+cd vigia
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -190,7 +192,7 @@ python main.py --ultimos-dias 7 --fuentes kev --alerta-discord --dias-alerta 7
 3. **Actions → Panel diario → Run workflow**.
 
 El panel publica también el Excel y los CSV, así que **Power BI puede conectarse por URL**
-(*Obtener datos → Web →* `https://TU_USUARIO.github.io/cve-explorer/powerbi/consolidado.csv`)
+(*Obtener datos → Web →* `https://TU_USUARIO.github.io/vigia/powerbi/consolidado.csv`)
 y con **Actualizar** trae los datos del día. Ver [docs/GUIA_POWER_BI.md](docs/GUIA_POWER_BI.md).
 
 ---
@@ -228,9 +230,9 @@ output/
 ## Estructura del proyecto
 
 ```
-cve-explorer/
+vigia/
 ├── main.py                       punto de entrada
-├── cve_explorer/
+├── vigia/
 │   ├── cli.py                    menú interactivo, parámetros y flujo principal
 │   ├── config.py                 llaves y ajustes (lee .env)
 │   ├── fechas.py                 validación de 5 años y división en tramos
@@ -270,8 +272,8 @@ fechas + fuentes ──►├─ CISA KEV (catálogo completo, filtro por fecha)
 
 ### Agregar otra base de datos
 
-1. Crear `cve_explorer/fuentes/mi_fuente.py` con una clase que herede de `FuenteBase` e implemente `consultar(desde, hasta)` devolviendo una lista de `Registro`.
-2. Registrarla en `cve_explorer/fuentes/__init__.py` dentro de `FUENTES`.
+1. Crear `vigia/fuentes/mi_fuente.py` con una clase que herede de `FuenteBase` e implemente `consultar(desde, hasta)` devolviendo una lista de `Registro`.
+2. Registrarla en `vigia/fuentes/__init__.py` dentro de `FUENTES`.
 
 ---
 

@@ -7,7 +7,7 @@ pero no probabilidad. API: https://www.first.org/epss/api
 
 from __future__ import annotations
 
-from cve_explorer.cliente_http import ClienteHTTP, ErrorFuente
+from vigia.cliente_http import ClienteHTTP, ErrorFuente
 
 URL = "https://api.first.org/data/v1/epss"
 LOTE = 100  # CVE por solicitud (la API acepta una lista separada por comas)

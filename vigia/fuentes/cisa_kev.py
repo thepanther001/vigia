@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from cve_explorer.fuentes.base import FuenteBase
-from cve_explorer.cliente_http import ErrorFuente
-from cve_explorer.modelo import FUENTE_KEV, Registro, fecha_iso, unicos
+from vigia.fuentes.base import FuenteBase
+from vigia.cliente_http import ErrorFuente
+from vigia.modelo import FUENTE_KEV, Registro, fecha_iso, unicos
 
 URLS = [
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",

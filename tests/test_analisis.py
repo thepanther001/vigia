@@ -8,11 +8,11 @@ import pandas as pd
 import pytest
 
 from conftest import cargar
-from cve_explorer import alertas, dashboard, inventario as inv, prioridad
-from cve_explorer import procesamiento as proc
-from cve_explorer.fuentes.cisa_kev import parsear_kev
-from cve_explorer.fuentes.github_advisory import parsear_advisory
-from cve_explorer.fuentes.nvd import parsear_cve
+from vigia import alertas, dashboard, inventario as inv, prioridad
+from vigia import procesamiento as proc
+from vigia.fuentes.cisa_kev import parsear_kev
+from vigia.fuentes.github_advisory import parsear_advisory
+from vigia.fuentes.nvd import parsear_cve
 
 DESDE, HASTA = date(2025, 1, 1), date(2025, 3, 31)
 
@@ -153,7 +153,7 @@ def test_mensaje_discord(datos):
     assert list(nuevas["cve_id"]) == ["CVE-2024-5555"]          # CVE-2025-0001 se agregó en enero
     c.loc[c["cve_id"] == "CVE-2024-5555", "titulo"] = "Falla @everyone"
     nuevas = alertas.nuevas_en_kev(registros, c, dias=30, hoy=date(2025, 2, 25))
-    msg = alertas.construir_mensaje(nuevas, "https://ejemplo.github.io/cve-explorer/")
+    msg = alertas.construir_mensaje(nuevas, "https://ejemplo.github.io/vigia/")
     assert msg["allowed_mentions"] == {"parse": []}
     assert "@everyone" not in msg["embeds"][0]["title"]
     assert "1 vulnerabilidad nueva explotada" in msg["content"]

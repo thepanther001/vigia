@@ -44,7 +44,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
 
-      - name: Ejecutar CVE Explorer
+      - name: Ejecutar Vigía
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}   # opcional: Settings > Secrets > Actions
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

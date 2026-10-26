@@ -296,7 +296,7 @@
   }
   $("#url-pbi").textContent = base.startsWith("http") ? base + "powerbi/consolidado.csv" : "(publica el panel en GitHub Pages para obtener la URL)";
   $("#pie").append(
-    `CVE Explorer v${m.version} · Datos: `,
+    `Vigía v${m.version} · Datos: `,
     el("a", { href: "https://nvd.nist.gov", target: "_blank", rel: "noopener noreferrer", text: "NIST NVD" }), ", ",
     el("a", { href: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog", target: "_blank", rel: "noopener noreferrer", text: "CISA KEV" }), ", ",
     el("a", { href: "https://github.com/advisories", target: "_blank", rel: "noopener noreferrer", text: "GitHub Advisory Database" }), " y ",

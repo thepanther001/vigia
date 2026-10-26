@@ -13,9 +13,9 @@ import time
 from datetime import date
 from typing import Optional
 
-from cve_explorer.fuentes.base import FuenteBase
-from cve_explorer.cliente_http import ErrorFuente
-from cve_explorer.modelo import (
+from vigia.fuentes.base import FuenteBase
+from vigia.cliente_http import ErrorFuente
+from vigia.modelo import (
     FUENTE_GHSA,
     Registro,
     fecha_iso,

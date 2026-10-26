@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from cve_explorer.fechas import (
+from vigia.fechas import (
     RangoFechasError,
     dividir_rango,
     fecha_minima_permitida,

@@ -9,21 +9,21 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
 
-from cve_explorer import __version__, config
-from cve_explorer.cliente_http import ErrorFuente
-from cve_explorer.epss import ClienteEPSS
-from cve_explorer.exportar import exportar
-from cve_explorer.fechas import (
+from vigia import __version__, config
+from vigia.cliente_http import ErrorFuente
+from vigia.epss import ClienteEPSS
+from vigia.exportar import exportar
+from vigia.fechas import (
     RangoFechasError,
     fecha_minima_permitida,
     parsear_fecha,
     rango_ultimos_dias,
     validar_rango,
 )
-from cve_explorer.fuentes import FUENTES, FuenteBase
-from cve_explorer import alertas, dashboard, inventario as inv, prioridad
-from cve_explorer import procesamiento as proc
-from cve_explorer.fuentes.nvd import FuenteNVD
+from vigia.fuentes import FUENTES, FuenteBase
+from vigia import alertas, dashboard, inventario as inv, prioridad
+from vigia import procesamiento as proc
+from vigia.fuentes.nvd import FuenteNVD
 
 EJEMPLOS = """
 ejemplos:
@@ -39,7 +39,7 @@ ejemplos:
 
 def construir_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="cve-explorer",
+        prog="vigia",
         description="Consulta vulnerabilidades CVE en varias bases de datos y las exporta a Excel/CSV.",
         epilog=EJEMPLOS,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -137,7 +137,7 @@ def modo_interactivo(args, entrada: Callable[[str], str] = input, hoy: date | No
     hoy = hoy or date.today()
     minima = fecha_minima_permitida(hoy)
     print("\n" + "=" * 62)
-    print(f"  CVE Explorer {__version__} — consulta de vulnerabilidades")
+    print(f"  Vigía {__version__} — consulta de vulnerabilidades")
     print("=" * 62)
 
     # 1) Rango de fechas

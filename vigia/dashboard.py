@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from cve_explorer import __version__
-from cve_explorer.modelo import ORDEN_FUENTES
-from cve_explorer.prioridad import NIVELES
+from vigia import __version__
+from vigia.modelo import ORDEN_FUENTES
+from vigia.prioridad import NIVELES
 
 # Chart.js fijado a una versión exacta + Subresource Integrity (SRI): si el CDN
 # entregara un archivo alterado, el navegador se niega a ejecutarlo.

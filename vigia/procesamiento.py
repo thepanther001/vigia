@@ -13,7 +13,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from cve_explorer.modelo import (
+from vigia.modelo import (
     COLUMNAS_REGISTRO,
     FUENTE_GHSA,
     FUENTE_KEV,
