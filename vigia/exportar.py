@@ -60,7 +60,7 @@ ANCHOS = {
     "ecosistema": 14, "cwe": 22, "explotada_activamente": 11, "ransomware": 12,
     "en_nvd": 8, "en_kev": 8, "en_github": 9, "num_fuentes": 9, "fuentes": 32,
     "estado": 24, "url": 45, "epss": 9, "epss_percentil": 10,
-    "prioridad_puntaje": 16, "prioridad_nivel": 14, "prioridad_plazo": 16, "prioridad_motivo": 60,
+    "prioridad_puntaje": 9, "prioridad_nivel": 13, "prioridad_plazo": 16, "prioridad_motivo": 60,
     "activos_afectados": 30, "activo": 28, "criticidad_activo": 11, "version_instalada": 14,
     "explotadas": 11, "prioridad_max": 12,
 }
@@ -74,7 +74,7 @@ ENCABEZADOS = {
     "explotada_activamente": "Explotada", "ransomware": "Ransomware", "en_nvd": "En NVD",
     "en_kev": "En KEV", "en_github": "En GitHub", "num_fuentes": "Nº fuentes",
     "fuentes": "Fuentes", "estado": "Estado / acción", "url": "Enlace", "epss": "EPSS",
-    "epss_percentil": "Percentil EPSS", "prioridad_puntaje": "Prioridad (0-100)",
+    "epss_percentil": "Percentil EPSS", "prioridad_puntaje": "Índice",
     "prioridad_nivel": "Nivel", "prioridad_plazo": "Corregir en", "prioridad_motivo": "Motivo",
     "activos_afectados": "Activos afectados", "activo": "Activo", "criticidad_activo": "Criticidad",
     "version_instalada": "Versión instalada", "explotadas": "Explotadas", "prioridad_max": "Prioridad máx.",
@@ -143,29 +143,84 @@ def exportar_csv(tablas: dict[str, pd.DataFrame], carpeta: Path) -> list[Path]:
 
 # ----------------------------------------------------------------- Excel
 
-def _hoja_de_datos(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, estilo="TableStyleMedium2"):
+# Texto de color (sin rellenos) para severidad, plazo y explotación: se lee
+# de un vistazo sin llenar la hoja de bloques de color.
+TEXTO_SEVERIDAD = {"Crítica": ("1B2B48", True), "Alta": ("2A5FA8", True), "Media": ("4F8FDB", False),
+                   "Baja": ("6B7486", False), "Ninguna": ("9AA3B2", False), "Sin calificar": ("9AA3B2", False)}
+TEXTO_NIVEL = {"Inmediata": (NARANJA_TEXTO, True), "Urgente": ("2A78D6", True),
+               "Planificada": ("6B7486", False), "Rutina": ("9AA3B2", False)}
+TEXTO_SI_NO = {"Sí": (NARANJA_TEXTO, True), "No": ("9AA3B2", False)}
+COLUMNAS_SUAVES = ("prioridad_plazo", "fuentes", "cvss_version", "estado", "id_fuente")
+# Columnas de texto que van justo después de otra larga: un poco de aire a la izquierda
+COLUMNAS_SEPARADAS = ("severidad", "prioridad_nivel", "proveedor", "producto", "activos_afectados",
+                      "prioridad_motivo", "cwe", "ecosistema")
+
+
+def _encabezado_marca(ws, n_columnas: int) -> None:
+    """Fila de títulos en azul marino con letra blanca, como la franja del panel."""
+    for i in range(1, n_columnas + 1):
+        celda = ws.cell(row=1, column=i)
+        celda.fill = PatternFill(start_color=AZUL, end_color=AZUL, fill_type="solid")
+        celda.font = Font(name=FUENTE, size=10, bold=True, color="FFFFFF")
+        celda.alignment = Alignment(vertical="center", wrap_text=True)
+    ws.row_dimensions[1].height = 30
+
+
+def _texto_condicional(ws, columna: int, filas: int, mapa: dict) -> None:
+    letra = get_column_letter(columna)
+    for valor, (color, negrita) in mapa.items():
+        ws.conditional_formatting.add(
+            f"{letra}2:{letra}{filas + 1}",
+            CellIsRule(operator="equal", formula=[f'"{valor}"'], font=Font(bold=negrita, color=color)),
+        )
+
+
+def _hoja_de_datos(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, estilo="TableStyleLight1"):
     df = limpiar(df)
     for col in COLUMNAS_BOOL:
         if col in df.columns:
             df[col] = df[col].map({True: "Sí", False: "No"})
+    # Menos ruido: mayúsculas solo para siglas y "Desconocido" no se repite en cada fila
+    for col in ("severidad", "prioridad_nivel", "criticidad_activo"):
+        if col in df.columns:
+            df[col] = df[col].map(lambda v: v.capitalize() if isinstance(v, str) else v)
+    if "ransomware" in df.columns:
+        df["ransomware"] = df["ransomware"].map(lambda v: "Sí" if v == "Sí" else None)
     columnas = list(df.columns)
     df = df.rename(columns={c: ENCABEZADOS.get(c, c) for c in columnas})
     df.to_excel(writer, sheet_name=hoja, index=False)
     ws = writer.sheets[hoja]
+    ws.sheet_view.showGridLines = False
+    ws.sheet_format.defaultRowHeight = 18
+    gris = Font(name=FUENTE, size=10, color="6B7486")
 
     for i, col in enumerate(columnas, start=1):
         letra = get_column_letter(i)
         ws.column_dimensions[letra].width = ANCHOS.get(col, 14)
+        formato = None
         if col.startswith("fecha"):
-            for celda in ws[letra][1:]:
-                celda.number_format = "yyyy-mm-dd"
+            formato = "yyyy-mm-dd"
         elif col in ("cvss_puntaje", "prioridad_puntaje", "prioridad_max"):
+            formato = "0.0"
+        elif col == "epss":
+            formato = "0.0%"
+        elif col == "epss_percentil":
+            formato = "0%"
+        alineacion = None
+        if col.startswith("fecha") or col in COLUMNAS_BOOL or col in ("ransomware", "cvss_version"):
+            alineacion = Alignment(horizontal="center")
+        elif col in COLUMNAS_SEPARADAS:
+            alineacion = Alignment(horizontal="left", indent=1)
+        if formato or alineacion or col in COLUMNAS_SUAVES:
             for celda in ws[letra][1:]:
-                celda.number_format = "0.0"
-        elif col in ("epss", "epss_percentil"):
-            for celda in ws[letra][1:]:
-                celda.number_format = "0.00%"
+                if formato:
+                    celda.number_format = formato
+                if alineacion:
+                    celda.alignment = alineacion
+                if col in COLUMNAS_SUAVES:
+                    celda.font = gris
 
+    _encabezado_marca(ws, len(columnas))
     ws.freeze_panes = "B2"
     if len(df):  # una tabla de Excel necesita al menos una fila de datos
         rango = f"A1:{get_column_letter(len(columnas))}{len(df) + 1}"
@@ -173,25 +228,11 @@ def _hoja_de_datos(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, estil
         tabla.tableStyleInfo = TableStyleInfo(name=estilo, showRowStripes=True)
         ws.add_table(tabla)
 
-        for col_color, mapa in (("severidad", COLOR_SEVERIDAD), ("prioridad_nivel", COLOR_NIVEL)):
-            if col_color not in columnas:
-                continue
-            letra = get_column_letter(columnas.index(col_color) + 1)
-            zona = f"{letra}2:{letra}{len(df) + 1}"
-            for valor, color in mapa.items():
-                ws.conditional_formatting.add(
-                    zona,
-                    CellIsRule(operator="equal", formula=[f'"{valor}"'],
-                               fill=PatternFill("solid", fgColor=color),
-                               font=Font(bold=True, color="FFFFFF" if valor in TEXTO_BLANCO else "14213A")),
-                )
-        # "Explotada: Sí" en naranja, como en el panel
-        if "explotada_activamente" in columnas:
-            letra = get_column_letter(columnas.index("explotada_activamente") + 1)
-            ws.conditional_formatting.add(
-                f"{letra}2:{letra}{len(df) + 1}",
-                CellIsRule(operator="equal", formula=['"Sí"'], font=Font(bold=True, color=NARANJA_TEXTO)),
-            )
+        for col, mapa in (("severidad", TEXTO_SEVERIDAD), ("prioridad_nivel", TEXTO_NIVEL),
+                          ("explotada_activamente", TEXTO_SI_NO), ("en_kev", TEXTO_SI_NO),
+                          ("ransomware", TEXTO_SI_NO)):
+            if col in columnas:
+                _texto_condicional(ws, columnas.index(col) + 1, len(df), mapa)
     return ws
 
 
@@ -206,8 +247,10 @@ def _tabla_simple(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, anchos
             celda.number_format = formato
     if len(df):
         tabla = Table(displayName=nombre_tabla, ref=f"A1:{get_column_letter(len(df.columns))}{len(df) + 1}")
-        tabla.tableStyleInfo = TableStyleInfo(name="TableStyleLight9", showRowStripes=True)
+        tabla.tableStyleInfo = TableStyleInfo(name="TableStyleLight1", showRowStripes=True)
         ws.add_table(tabla)
+    _encabezado_marca(ws, len(df.columns))
+    ws.sheet_view.showGridLines = False
     ws.freeze_panes = "A2"
     return ws
 
@@ -485,12 +528,12 @@ def exportar_excel(
         top = resumenes.get("prioridad")
         if top is not None:
             cols = [c for c in COLUMNAS_PRIORIDAD if c in top.columns]
-            _hoja_de_datos(writer, top[cols], "Prioridad", "tblPrioridad", estilo="TableStyleMedium2")
+            _hoja_de_datos(writer, top[cols], "Prioridad", "tblPrioridad", estilo="TableStyleLight1")
         if resumenes.get("afectaciones") is not None:
-            _hoja_de_datos(writer, resumenes["por_activo"], "Activos", "tblActivos", estilo="TableStyleMedium2")
-            _hoja_de_datos(writer, resumenes["afectaciones"], "Inventario", "tblInventario", estilo="TableStyleMedium2")
+            _hoja_de_datos(writer, resumenes["por_activo"], "Activos", "tblActivos")
+            _hoja_de_datos(writer, resumenes["afectaciones"], "Inventario", "tblInventario", estilo="TableStyleLight1")
         _hoja_de_datos(writer, consolidado, "Consolidado", "tblConsolidado")
-        _hoja_de_datos(writer, registros, "Registros", "tblRegistros", estilo="TableStyleLight9")
+        _hoja_de_datos(writer, registros, "Registros", "tblRegistros", estilo="TableStyleLight1")
         hojas = {
             "Por_Mes": _tabla_simple(writer, resumenes["por_mes"], "Por_Mes", "tblPorMes",
                                      [10] + [16] * (len(resumenes["por_mes"].columns) - 1)),
