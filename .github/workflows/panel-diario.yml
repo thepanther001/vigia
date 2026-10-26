@@ -8,6 +8,10 @@ name: Panel diario (GitHub Pages)
 #   Settings → Secrets and variables → Actions:
 #     NVD_API_KEY          (opcional, recomendado)
 #     DISCORD_WEBHOOK_URL  (opcional, para las alertas)
+#
+# OJO: el panel es PÚBLICO. Usa solo el inventario de ejemplo (empresa ficticia).
+# Publicar el inventario real de una organización le diría a un atacante qué
+# software vulnerable tiene. Para una organización real: repo privado o --sin-inventario.
 on:
   schedule:
     - cron: "17 11 * * *"   # 11:17 UTC = 7:17 a. m. en República Dominicana
@@ -36,6 +40,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"

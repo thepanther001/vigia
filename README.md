@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.10%2B-2A78D6" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/python-3.11%2B-2A78D6" alt="Python 3.11+">
   <a href="https://github.com/thepanther001/vigia/actions/workflows/pruebas.yml"><img src="https://github.com/thepanther001/vigia/actions/workflows/pruebas.yml/badge.svg" alt="Pruebas"></a>
   <img src="https://img.shields.io/badge/licencia-MIT-1B2B48" alt="Licencia MIT">
   <a href="https://thepanther001.github.io/vigia/"><img src="https://img.shields.io/badge/panel-en%20vivo-EB6834" alt="Panel en vivo"></a>
@@ -191,7 +191,8 @@ python main.py --ultimos-dias 7 --fuentes kev --alerta-discord --dias-alerta 7
 
 | Workflow | Cuándo | Qué hace |
 |---|---|---|
-| `pruebas.yml` | Cada `push` | Corre las pruebas automáticas |
+| `pruebas.yml` | Cada `push` | Pruebas automáticas + revisión de seguridad (pip-audit y bandit) |
+| `codeql.yml` | Cada `push` y cada lunes | Análisis de seguridad de GitHub (Python y JavaScript) |
 | `panel-diario.yml` | Todos los días 7:17 a. m. (RD) y a mano | Consulta 30 días, publica el panel en **GitHub Pages**, avisa a Discord |
 | `generar-reporte.yml` | A mano (Actions → Run workflow) | Reporte con fechas/fuentes a elección; el Excel queda en *Artifacts* |
 
@@ -302,6 +303,12 @@ fechas + fuentes ──►├─ CISA KEV (catálogo completo, filtro por fecha)
 | Librerías de terceros comprometidas | El panel **no carga ningún script externo**: los gráficos se dibujan en SVG con código propio |
 | Exfiltración por webhook falso | Solo se acepta `https://discord.com/api/webhooks/...` |
 | Spam de menciones | Las alertas no pueden hacer `@everyone` (`allowed_mentions` vacío) |
+| Dependencias vulnerables | Versiones fijas, **Dependabot** semanal y **pip-audit** en cada push |
+| Código inseguro | **bandit** y **GitHub CodeQL** (Python y JavaScript) en cada push |
+| Workflows con demasiado poder | Permisos mínimos por workflow, `persist-credentials: false`, entradas por variables de entorno |
+| Exposición de la organización | El panel es público: solo se usa un inventario **ficticio** |
+
+Detalles y cómo reportar un problema: [SECURITY.md](SECURITY.md).
 
 ## Pruebas
 

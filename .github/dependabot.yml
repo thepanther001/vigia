@@ -1,0 +1,15 @@
+# Revisa cada semana si hay versiones nuevas (o parches de seguridad)
+# de las librerías de Python y de las acciones de GitHub, y abre un PR.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dependencias:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
