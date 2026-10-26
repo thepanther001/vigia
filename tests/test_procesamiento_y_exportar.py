@@ -105,3 +105,30 @@ def test_exportar_excel_y_csv(tmp_path, registros, consolidado):
     csv = pd.read_csv(tmp_path / "powerbi" / "consolidado.csv", encoding="utf-8-sig")
     assert len(csv) == 5
     assert {"cwe_por_cve.csv", "registros.csv", "por_mes.csv"} <= {p.name for p in (tmp_path / "powerbi").iterdir()}
+
+
+def test_graficos_no_tapan_el_area(tmp_path, registros, consolidado):
+    """En Excel, sin <c:overlay val="0"/> el título y la leyenda se montan encima del gráfico."""
+    import re
+    import zipfile
+
+    from vigia.exportar import exportar_excel
+
+    resumenes = {
+        "por_mes": proc.tabla_por_mes(registros, consolidado, DESDE, HASTA),
+        "por_severidad": proc.tabla_por_severidad(consolidado),
+        "top_proveedores": proc.tabla_top_proveedores(consolidado),
+        "top_cwe": proc.tabla_top_cwe(consolidado),
+    }
+    parametros = {"Generado": "hoy", "Desde": str(DESDE), "Hasta": str(HASTA), "Fuentes consultadas": "todas"}
+    ruta = exportar_excel(tmp_path / "r.xlsx", registros, consolidado, resumenes,
+                          proc.indicadores(consolidado, registros), parametros)
+    with zipfile.ZipFile(ruta) as z:
+        graficos = [n for n in z.namelist() if n.startswith("xl/charts/chart")]
+        assert len(graficos) == 4
+        for nombre in graficos:
+            xml = z.read(nombre).decode()
+            titulo = re.search(r"<title>.*?</title>", xml, re.S).group(0)
+            assert '<overlay val="0"/>' in titulo, nombre
+            for leyenda in re.findall(r"<legend>.*?</legend>", xml, re.S):
+                assert '<overlay val="0"/>' in leyenda, nombre

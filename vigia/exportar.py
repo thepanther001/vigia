@@ -11,6 +11,9 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText, Text
+from openpyxl.chart.title import Title
+from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RegularTextRun
 from openpyxl.drawing.line import LineProperties
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
@@ -204,6 +207,22 @@ ANCHO_COMPLETO = 29.0   # cm (columnas B a L)
 ANCHO_MEDIO = 14.2      # cm
 
 
+def _titulo(texto: str) -> Title:
+    """Título que NO se monta encima del gráfico.
+
+    openpyxl no escribe <c:overlay val="0"/> y, sin esa etiqueta, Excel pone el
+    título y la leyenda ENCIMA del área del gráfico (en LibreOffice no pasa).
+    """
+    letra = CharacterProperties(sz=1200, b=True, solidFill="1F2937")
+    parrafo = Paragraph(pPr=ParagraphProperties(defRPr=letra), r=[RegularTextRun(rPr=letra, t=texto)])
+    return Title(tx=Text(rich=RichText(p=[parrafo])), overlay=False)
+
+
+def _texto_ejes(eje, tamano: int = 900) -> None:
+    letra = CharacterProperties(sz=tamano, solidFill="4B5563")
+    eje.txPr = RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=letra), endParaRPr=letra)])
+
+
 def _lineas_suaves():
     return ChartLines(spPr=GraphicalProperties(ln=LineProperties(solidFill=GRIS_LINEA)))
 
@@ -225,7 +244,7 @@ def _barras_horizontales(hoja, titulo: str, col_categoria: int, col_valor: int, 
     de cada barra y sin eje de valores (los números ya están en las etiquetas)."""
     g = BarChart()
     g.type = "bar"
-    g.title = titulo
+    g.title = _titulo(titulo)
     g.style = 10
     g.height, g.width = ALTO_GRAFICO, ANCHO_MEDIO
     g.add_data(Reference(hoja, min_col=col_valor, min_row=1, max_row=filas + 1), titles_from_data=True)
@@ -247,6 +266,7 @@ def _barras_horizontales(hoja, titulo: str, col_categoria: int, col_valor: int, 
             punto.graphicalProperties.line.noFill = True
             serie.dPt.append(punto)
     g.dataLabels = _etiquetas_valor()
+    _texto_ejes(g.x_axis)
     return g
 
 
@@ -314,7 +334,7 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
     puntos = t.max_row - 1
     if puntos >= 1 and t.max_column >= 2:
         g = LineChart()
-        g.title = f"CVE publicadas por {t['A1'].value.lower()} y por fuente"
+        g.title = _titulo(f"CVE publicadas por {t['A1'].value.lower()} y por fuente")
         g.style = 10
         g.height, g.width = ALTO_GRAFICO, ANCHO_COMPLETO
         g.add_data(Reference(t, min_col=2, max_col=t.max_column, min_row=1, max_row=t.max_row), titles_from_data=True)
@@ -331,6 +351,9 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
                 serie.marker.graphicalProperties = GraphicalProperties(solidFill=color)
                 serie.marker.graphicalProperties.line.solidFill = color
         g.legend.position = "b"
+        g.legend.overlay = False
+        _texto_ejes(g.x_axis)
+        _texto_ejes(g.y_axis)
         g.x_axis.delete = False
         g.y_axis.delete = False
         g.x_axis.number_format = "@"
@@ -371,7 +394,7 @@ def _cwe_con_etiqueta(top_cwe: pd.DataFrame) -> pd.DataFrame:
     df["Etiqueta"] = [
         f"{c} · {d}" if d else c for c, d in zip(df["CWE"], df["Debilidad"].fillna(""))
     ]
-    df["Etiqueta"] = df["Etiqueta"].map(lambda t: t if len(t) <= 46 else t[:45] + "…")
+    df["Etiqueta"] = df["Etiqueta"].map(lambda t: t if len(t) <= 42 else t[:41] + "…")
     return df
 
 
