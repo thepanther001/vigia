@@ -129,6 +129,7 @@ def test_graficos_no_tapan_el_area(tmp_path, registros, consolidado):
         for nombre in graficos:
             xml = z.read(nombre).decode()
             titulo = re.search(r"<title>.*?</title>", xml, re.S).group(0)
-            assert '<overlay val="0"/>' in titulo, nombre
+            sin_encima = re.compile(r'<overlay val="0"\s*/>')  # con o sin espacio según la librería XML
+            assert sin_encima.search(titulo), nombre
             for leyenda in re.findall(r"<legend>.*?</legend>", xml, re.S):
-                assert '<overlay val="0"/>' in leyenda, nombre
+                assert sin_encima.search(leyenda), nombre
