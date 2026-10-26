@@ -272,3 +272,23 @@ def completar_desde_nvd(consolidado: pd.DataFrame, extra: pd.DataFrame) -> pd.Da
     sin_cwe = df.loc[comunes, "cwe"].isna()
     df.loc[sin_cwe[sin_cwe].index, "cwe"] = nvd.loc[sin_cwe[sin_cwe].index, "cwe"]
     return df.reset_index()
+
+
+def serie_temporal(registros: pd.DataFrame, desde: date, hasta: date) -> dict:
+    """Diaria si el rango es corto (<= 92 días); mensual si es largo."""
+    diaria = (hasta - desde).days <= 92
+    if diaria:
+        etiquetas = pd.date_range(desde, hasta, freq="D").strftime("%Y-%m-%d").tolist()
+        formato = "%Y-%m-%d"
+    else:
+        etiquetas = pd.period_range(desde, hasta, freq="M").strftime("%Y-%m").tolist()
+        formato = "%Y-%m"
+    series = {}
+    datos = registros.dropna(subset=["fecha_publicacion"])
+    for fuente in ORDEN_FUENTES:
+        sub = datos[datos["fuente"] == fuente]
+        if sub.empty and fuente not in set(registros["fuente"]):
+            continue
+        conteo = sub.groupby(sub["fecha_publicacion"].dt.strftime(formato))["cve_id"].nunique()
+        series[fuente] = [int(conteo.get(e, 0)) for e in etiquetas]
+    return {"granularidad": "día" if diaria else "mes", "etiquetas": etiquetas, "series": series}

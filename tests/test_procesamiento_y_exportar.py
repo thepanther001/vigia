@@ -68,6 +68,12 @@ def test_tablas_resumen(registros, consolidado):
     assert kpis["CVE únicas"] == 5 and kpis["Usadas en ransomware"] == 1
 
 
+def test_texto_seguro_quita_caracteres_que_rompen_excel():
+    from vigia.exportar import _texto_seguro
+    assert _texto_seguro("abc\uffff\x07def") == "abcdef"
+    assert _texto_seguro("=1+1") == " =1+1"
+
+
 def test_consolidar_vacio():
     assert proc.consolidar(proc.registros_a_df([])).empty
 
@@ -87,7 +93,7 @@ def test_exportar_excel_y_csv(tmp_path, registros, consolidado):
     excel = next(r for r in rutas if r.suffix == ".xlsx")
     wb = load_workbook(excel)
     assert wb.sheetnames == ["Resumen", "Consolidado", "Registros", "Por_Mes", "Por_Severidad",
-                             "Top_Proveedores", "Top_CWE", "Parametros"]
+                             "Top_Proveedores", "Top_CWE", "Tendencia", "Parametros"]
     assert len(wb["Resumen"]._charts) == 4
     assert "tblConsolidado" in wb["Consolidado"].tables
 

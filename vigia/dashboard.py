@@ -24,7 +24,7 @@ from pathlib import Path
 import pandas as pd
 
 from vigia import __version__
-from vigia.modelo import ORDEN_FUENTES
+from vigia import procesamiento as proc
 from vigia.prioridad import NIVELES
 
 # Chart.js fijado a una versión exacta + Subresource Integrity (SRI): si el CDN
@@ -51,26 +51,6 @@ def _valor(v):
     if v is pd.NaT or (not isinstance(v, (str, bool, int, float)) and pd.isna(v)):
         return None
     return v
-
-
-def _serie_temporal(registros: pd.DataFrame, desde: date, hasta: date) -> dict:
-    """Diaria si el rango es corto (<= 92 días); mensual si es largo."""
-    diaria = (hasta - desde).days <= 92
-    if diaria:
-        etiquetas = pd.date_range(desde, hasta, freq="D").strftime("%Y-%m-%d").tolist()
-        formato = "%Y-%m-%d"
-    else:
-        etiquetas = pd.period_range(desde, hasta, freq="M").strftime("%Y-%m").tolist()
-        formato = "%Y-%m"
-    series = {}
-    datos = registros.dropna(subset=["fecha_publicacion"])
-    for fuente in ORDEN_FUENTES:
-        sub = datos[datos["fuente"] == fuente]
-        if sub.empty and fuente not in set(registros["fuente"]):
-            continue
-        conteo = sub.groupby(sub["fecha_publicacion"].dt.strftime(formato))["cve_id"].nunique()
-        series[fuente] = [int(conteo.get(e, 0)) for e in etiquetas]
-    return {"granularidad": "día" if diaria else "mes", "etiquetas": etiquetas, "series": series}
 
 
 def construir_datos(
@@ -133,7 +113,7 @@ def construir_datos(
             "urgente": int(niveles.get("URGENTE", 0)),
             "cvss_prom": kpis["CVSS promedio"],
         },
-        "serie": _serie_temporal(registros, desde, hasta),
+        "serie": proc.serie_temporal(registros, desde, hasta),
         "severidad": {r.Severidad: int(r.Cantidad) for r in resumenes["por_severidad"].itertuples()},
         "niveles": [{"nivel": n, "plazo": p, "cve": int(niveles.get(n, 0))} for _, n, p in NIVELES],
         "proveedores": [

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
-from openpyxl.chart import BarChart, DoughnutChart, LineChart, Reference
+from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.drawing.line import LineProperties
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
 from openpyxl.formatting.rule import CellIsRule
@@ -16,6 +20,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from vigia import __version__
+from vigia.procesamiento import serie_temporal
 
 # Paleta del reporte
 AZUL = "1B2B48"
@@ -70,6 +75,9 @@ COLUMNAS_PRIORIDAD = [
 ]
 COLUMNAS_BOOL = ["explotada_activamente", "en_nvd", "en_kev", "en_github"]
 PELIGROSOS = ("=", "+", "-", "@", "\t", "\r")
+# Caracteres que XML 1.0 no permite y que openpyxl no filtra (U+FFFE, U+FFFF y
+# sustitutos sueltos). Si se cuelan, Excel dice que el archivo está dañado.
+NO_VALIDOS_XML = re.compile("[\ufffe\uffff\ud800-\udfff]")
 
 
 # ----------------------------------------------------------------- limpieza
@@ -83,6 +91,7 @@ def _texto_seguro(valor, maximo: int = 32000):
     if not isinstance(valor, str):
         return valor
     valor = ILLEGAL_CHARACTERS_RE.sub("", valor)
+    valor = NO_VALIDOS_XML.sub("", valor)
     if valor.startswith(PELIGROSOS):
         valor = " " + valor
     return valor[:maximo]
@@ -186,14 +195,70 @@ def _tabla_simple(writer, df: pd.DataFrame, hoja: str, nombre_tabla: str, anchos
     return ws
 
 
+# ----------------------------------------------------------------- hoja Resumen
+
+COLOR_FUENTE = {"NVD": "2A78D6", "CISA KEV": "EB6834", "GitHub Advisory": "1BAF7A"}
+GRIS_LINEA = "E5E7EB"
+ALTO_GRAFICO = 7.6      # cm (≈ 14 filas de 15 pt)
+ANCHO_COMPLETO = 29.0   # cm (columnas B a L)
+ANCHO_MEDIO = 14.2      # cm
+
+
+def _lineas_suaves():
+    return ChartLines(spPr=GraphicalProperties(ln=LineProperties(solidFill=GRIS_LINEA)))
+
+
+def _etiquetas_valor() -> DataLabelList:
+    """Solo el número al final de cada barra (sin nombre de serie ni de categoría)."""
+    etiquetas = DataLabelList()
+    etiquetas.showVal = True
+    for campo in ("showSerName", "showCatName", "showLegendKey", "showPercent", "showLeaderLines"):
+        setattr(etiquetas, campo, False)
+    etiquetas.position = "outEnd"
+    etiquetas.numFmt = "#,##0"
+    return etiquetas
+
+
+def _barras_horizontales(hoja, titulo: str, col_categoria: int, col_valor: int, filas: int,
+                         colores: list[str] | None = None, color: str = AZUL) -> BarChart:
+    """Barras horizontales limpias: categorías en orden (la mayor arriba), números al final
+    de cada barra y sin eje de valores (los números ya están en las etiquetas)."""
+    g = BarChart()
+    g.type = "bar"
+    g.title = titulo
+    g.style = 10
+    g.height, g.width = ALTO_GRAFICO, ANCHO_MEDIO
+    g.add_data(Reference(hoja, min_col=col_valor, min_row=1, max_row=filas + 1), titles_from_data=True)
+    g.set_categories(Reference(hoja, min_col=col_categoria, min_row=2, max_row=filas + 1))
+    g.legend = None
+    g.gapWidth = 55
+    g.x_axis.scaling.orientation = "maxMin"     # el primero de la tabla arriba
+    g.x_axis.delete = False
+    g.x_axis.majorTickMark = "none"
+    g.y_axis.delete = True                      # sin eje de números: van en las etiquetas
+    g.y_axis.majorGridlines = None
+    serie = g.series[0]
+    serie.graphicalProperties.solidFill = color
+    serie.graphicalProperties.line.noFill = True
+    if colores:
+        for idx, c in enumerate(colores):
+            punto = DataPoint(idx=idx)
+            punto.graphicalProperties.solidFill = c
+            punto.graphicalProperties.line.noFill = True
+            serie.dPt.append(punto)
+    g.dataLabels = _etiquetas_valor()
+    return g
+
+
 def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
     ws = wb.create_sheet("Resumen", 0)
     ws.sheet_view.showGridLines = False
+    ws.sheet_view.zoomScale = 90
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    for col, ancho in zip("ABCDEFGHIJKLMNOP", [2, 22, 14, 2, 22, 14, 2, 22, 14, 2, 22, 14, 2, 14, 14, 14]):
+    for col, ancho in zip("ABCDEFGHIJKLM", [2, 24, 13, 2, 24, 13, 2, 24, 13, 2, 24, 13, 2]):
         ws.column_dimensions[col].width = ancho
 
     ws.merge_cells("B2:L2")
@@ -204,18 +269,17 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
                 f"Fuentes: {parametros['Fuentes consultadas']}   ·   Generado: {parametros['Generado']}")
     ws["B3"].font = Font(size=10, color=GRIS)
 
+    # --- Indicadores (2 filas de 4 tarjetas)
     tarjetas = [
         ("CVE únicas", kpis["CVE únicas"], AZUL),
         ("Críticas", kpis["Críticas"], COLOR_SEVERIDAD["CRÍTICA"]),
         ("Altas", kpis["Altas"], COLOR_SEVERIDAD["ALTA"]),
+        ("CVSS promedio", kpis["CVSS promedio"] if kpis["CVSS promedio"] is not None else "—", "2E86C1"),
         ("Explotadas activamente", kpis["Explotadas activamente"], "7D3C98"),
         ("Usadas en ransomware", kpis["Usadas en ransomware"], "922B21"),
-        ("CVSS promedio", kpis["CVSS promedio"] if kpis["CVSS promedio"] is not None else "—", "2E86C1"),
         ("Prioridad INMEDIATA", kpis.get("Prioridad inmediata", "—"), COLOR_NIVEL["INMEDIATA"]),
         ("Afectan al inventario", kpis.get("Afectan al inventario", "—"), "1B5E9C"),
     ]
-    orden = [0, 1, 2, 5, 3, 4, 6, 7]  # fila 1: volumen/gravedad · fila 2: explotación/prioridad
-    tarjetas = [tarjetas[i] for i in orden]
     posiciones = [("B", "C"), ("E", "F"), ("H", "I"), ("K", "L")]
     for i, (titulo, valor, color) in enumerate(tarjetas):
         fila = 5 + (i // 4) * 3
@@ -224,94 +288,101 @@ def _hoja_resumen(wb, kpis: dict, parametros: dict, hojas: dict):
         ws.merge_cells(f"{c1}{fila + 1}:{c2}{fila + 1}")
         ws[f"{c1}{fila}"] = titulo
         ws[f"{c1}{fila}"].font = Font(size=10, color=GRIS, bold=True)
-        ws[f"{c1}{fila + 1}"] = valor
-        ws[f"{c1}{fila + 1}"].font = Font(size=22, bold=True, color=color)
-        ws[f"{c1}{fila + 1}"].alignment = Alignment(horizontal="left")
+        ws[f"{c1}{fila}"].alignment = Alignment(horizontal="left", vertical="bottom", indent=1)
+        celda = ws[f"{c1}{fila + 1}"]
+        celda.value = valor
+        celda.font = Font(size=22, bold=True, color=color)
+        celda.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        celda.number_format = "0.00" if isinstance(valor, float) else "#,##0"
+        ws.row_dimensions[fila + 1].height = 34
         for f in (fila, fila + 1):
             ws[f"{c1}{f}"].border = Border(left=Side(style="thick", color=color))
             for c in (c1, c2):
                 ws[f"{c}{f}"].fill = PatternFill("solid", fgColor=AZUL_CLARO)
 
-    fila = 12
-    ws[f"B{fila}"] = "Registros por fuente"
-    ws[f"B{fila}"].font = Font(bold=True, color=AZUL)
+    # --- Registros por fuente (tabla pequeña, filas 12-15; los gráficos empiezan en la 18)
+    ws["B12"] = "Registros por fuente"
+    ws["B12"].font = Font(bold=True, color=AZUL)
     for j, (fuente, n) in enumerate(kpis["Registros por fuente"].items(), start=1):
-        ws[f"B{fila + j}"] = fuente
-        ws[f"C{fila + j}"] = n
-        ws[f"C{fila + j}"].number_format = "#,##0"
+        ws[f"B{12 + j}"] = fuente
+        ws[f"C{12 + j}"] = n
+        ws[f"C{12 + j}"].number_format = "#,##0"
+        ws[f"C{12 + j}"].alignment = Alignment(horizontal="right")
 
-    # --- Gráficos (leen las hojas de tablas)
-    mes = hojas["Por_Mes"]
-    filas_mes = mes.max_row
-    if filas_mes > 1:
+    # --- 1) Tendencia (ancho completo)
+    t = hojas["Tendencia"]
+    puntos = t.max_row - 1
+    if puntos >= 1 and t.max_column >= 2:
         g = LineChart()
-        g.title = "CVE por mes y por fuente"
-        g.height, g.width = 8, 26
-        g.y_axis.title = "Cantidad"
-        g.y_axis.majorGridlines = None
-        datos = Reference(mes, min_col=2, max_col=mes.max_column, min_row=1, max_row=filas_mes)
-        g.add_data(datos, titles_from_data=True)
-        g.set_categories(Reference(mes, min_col=1, min_row=2, max_row=filas_mes))
+        g.title = f"CVE publicadas por {t['A1'].value.lower()} y por fuente"
+        g.style = 10
+        g.height, g.width = ALTO_GRAFICO, ANCHO_COMPLETO
+        g.add_data(Reference(t, min_col=2, max_col=t.max_column, min_row=1, max_row=t.max_row), titles_from_data=True)
+        g.set_categories(Reference(t, min_col=1, min_row=2, max_row=t.max_row))
         for serie in g.series:
+            nombre = serie.tx.strRef.f if serie.tx and serie.tx.strRef else ""
             serie.smooth = False
-        g.x_axis.number_format = "@"
+            serie.marker.symbol = "circle" if puntos <= 3 else "none"
+            serie.graphicalProperties.line.width = 22000
+        for serie, col in zip(g.series, range(2, t.max_column + 1)):
+            color = COLOR_FUENTE.get(t.cell(row=1, column=col).value, GRIS)
+            serie.graphicalProperties.line.solidFill = color
+            if serie.marker.symbol == "circle":
+                serie.marker.graphicalProperties = GraphicalProperties(solidFill=color)
+                serie.marker.graphicalProperties.line.solidFill = color
+        g.legend.position = "b"
         g.x_axis.delete = False
         g.y_axis.delete = False
-        ws.add_chart(g, "B17")
+        g.x_axis.number_format = "@"
+        g.x_axis.majorTickMark = "none"
+        g.x_axis.tickLblSkip = max(1, puntos // 12)
+        g.x_axis.tickMarkSkip = max(1, puntos // 12)
+        g.y_axis.majorGridlines = _lineas_suaves()
+        g.y_axis.number_format = "#,##0"
+        ws.add_chart(g, "B18")
 
+    # --- 2) Severidad y nivel de prioridad
     sev = hojas["Por_Severidad"]
     if sev.max_row > 1:
-        d = DoughnutChart()
-        d.title = "Distribución por severidad"
-        d.height, d.width = 8, 12
-        d.add_data(Reference(sev, min_col=2, min_row=1, max_row=sev.max_row), titles_from_data=True)
-        d.set_categories(Reference(sev, min_col=1, min_row=2, max_row=sev.max_row))
-        serie = d.series[0]
-        for idx in range(sev.max_row - 1):
-            nombre = sev.cell(row=idx + 2, column=1).value
-            punto = DataPoint(idx=idx)
-            punto.graphicalProperties.solidFill = COLOR_SEVERIDAD.get(nombre, "999999")
-            serie.dPt.append(punto)
-        d.dataLabels = DataLabelList()
-        d.dataLabels.showPercent = True
-        d.dataLabels.showVal = False
-        d.dataLabels.showCatName = False
-        d.dataLabels.showSerName = False
-        d.dataLabels.showLeaderLines = False
-        ws.add_chart(d, "B34")
+        colores = [COLOR_SEVERIDAD.get(sev.cell(row=i, column=1).value, "999999") for i in range(2, sev.max_row + 1)]
+        ws.add_chart(_barras_horizontales(sev, "CVE por severidad (CVSS)", 1, 2, sev.max_row - 1, colores), "B35")
+    niv = hojas.get("Por_Prioridad")
+    if niv is not None and niv.max_row > 1:
+        colores = [COLOR_NIVEL.get(niv.cell(row=i, column=1).value, "999999") for i in range(2, niv.max_row + 1)]
+        ws.add_chart(_barras_horizontales(niv, "CVE por nivel de prioridad", 1, 3, niv.max_row - 1, colores), "H35")
 
+    # --- 3) Proveedores y debilidades
     prov = hojas["Top_Proveedores"]
     if prov.max_row > 1:
-        b = BarChart()
-        b.type = "bar"
-        b.title = "Proveedores con más CVE"
-        b.height, b.width = 8, 13.5
-        b.add_data(Reference(prov, min_col=2, min_row=1, max_row=min(prov.max_row, 11)), titles_from_data=True)
-        b.set_categories(Reference(prov, min_col=1, min_row=2, max_row=min(prov.max_row, 11)))
-        b.y_axis.majorGridlines = None
-        b.x_axis.scaling.orientation = "maxMin"  # el mayor arriba
-        b.legend = None
-        b.x_axis.delete = False
-        b.y_axis.delete = False
-        b.series[0].graphicalProperties.solidFill = AZUL
-        ws.add_chart(b, "H34")
-
+        ws.add_chart(_barras_horizontales(prov, "Proveedores con más CVE", 1, 2, min(prov.max_row - 1, 10)), "B52")
     cwe = hojas["Top_CWE"]
     if cwe.max_row > 1:
-        b = BarChart()
-        b.type = "bar"
-        b.title = "Debilidades (CWE) más comunes"
-        b.height, b.width = 8, 26
-        b.add_data(Reference(cwe, min_col=3, min_row=1, max_row=min(cwe.max_row, 11)), titles_from_data=True)
-        b.set_categories(Reference(cwe, min_col=1, min_row=2, max_row=min(cwe.max_row, 11)))
-        b.y_axis.majorGridlines = None
-        b.x_axis.scaling.orientation = "maxMin"
-        b.legend = None
-        b.x_axis.delete = False
-        b.y_axis.delete = False
-        b.series[0].graphicalProperties.solidFill = "2E86C1"
-        ws.add_chart(b, "B51")
+        ws.add_chart(_barras_horizontales(cwe, "Debilidades (CWE) más comunes", 4, 3, min(cwe.max_row - 1, 10),
+                                          color="2E86C1"), "H52")
     return ws
+
+
+def _cwe_con_etiqueta(top_cwe: pd.DataFrame) -> pd.DataFrame:
+    """Agrega 'Etiqueta' = 'CWE-79 · Cross-site scripting (XSS)' para el gráfico."""
+    df = top_cwe.copy()
+    if df.empty:
+        df["Etiqueta"] = pd.Series(dtype=str)
+        return df
+    df["Etiqueta"] = [
+        f"{c} · {d}" if d else c for c, d in zip(df["CWE"], df["Debilidad"].fillna(""))
+    ]
+    df["Etiqueta"] = df["Etiqueta"].map(lambda t: t if len(t) <= 46 else t[:45] + "…")
+    return df
+
+
+def _tabla_tendencia(registros: pd.DataFrame, desde: date, hasta: date) -> pd.DataFrame:
+    """Diaria para rangos cortos (≤ 92 días) y mensual para rangos largos."""
+    serie = serie_temporal(registros, desde, hasta)
+    columna = "Día" if serie["granularidad"] == "día" else "Mes"
+    df = pd.DataFrame({columna: serie["etiquetas"], **serie["series"]})
+    if columna == "Día":
+        df[columna] = df[columna].str[5:]  # 2026-10-05 -> 10-05
+    return df
 
 
 def exportar_excel(
@@ -321,8 +392,12 @@ def exportar_excel(
     resumenes: dict[str, pd.DataFrame],
     kpis: dict,
     parametros: dict,
+    desde: date | None = None,
+    hasta: date | None = None,
 ) -> Path:
     ruta.parent.mkdir(parents=True, exist_ok=True)
+    desde = desde or date.fromisoformat(str(parametros["Desde"]))
+    hasta = hasta or date.fromisoformat(str(parametros["Hasta"]))
     with pd.ExcelWriter(ruta, engine="openpyxl") as writer:
         top = resumenes.get("prioridad")
         if top is not None:
@@ -340,8 +415,14 @@ def exportar_excel(
                                            [16, 12, 12], {"Porcentaje": "0.0%"}),
             "Top_Proveedores": _tabla_simple(writer, resumenes["top_proveedores"], "Top_Proveedores",
                                              "tblProveedores", [30, 10, 10, 12]),
-            "Top_CWE": _tabla_simple(writer, resumenes["top_cwe"], "Top_CWE", "tblCWE", [12, 48, 10]),
+            "Top_CWE": _tabla_simple(writer, _cwe_con_etiqueta(resumenes["top_cwe"]), "Top_CWE", "tblCWE",
+                                     [12, 44, 10, 48]),
+            "Tendencia": _tabla_simple(writer, _tabla_tendencia(registros, desde, hasta), "Tendencia",
+                                       "tblTendencia", [12, 14, 14, 16]),
         }
+        if resumenes.get("niveles") is not None:
+            hojas["Por_Prioridad"] = _tabla_simple(writer, resumenes["niveles"], "Por_Prioridad", "tblPrioridadNiveles",
+                                                   [16, 26, 10])
         param = pd.DataFrame({"Parámetro": list(parametros.keys()), "Valor": [str(v) for v in parametros.values()]})
         _tabla_simple(writer, param, "Parametros", "tblParametros", [28, 100])
 
@@ -368,7 +449,7 @@ def exportar(
     rutas: list[Path] = []
     if formato in ("excel", "ambos"):
         rutas.append(exportar_excel(carpeta / f"{_nombre_base(desde, hasta)}.xlsx",
-                                    registros, consolidado, resumenes, kpis, parametros))
+                                    registros, consolidado, resumenes, kpis, parametros, desde, hasta))
     if formato in ("csv", "ambos"):
         tablas = {
             "consolidado": consolidado,

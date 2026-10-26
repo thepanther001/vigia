@@ -132,8 +132,8 @@ def test_dashboard_escapa_datos_y_csp(datos, tmp_path):
 
 def test_serie_diaria_y_mensual(datos):
     registros, _ = datos
-    assert dashboard._serie_temporal(registros, DESDE, HASTA)["granularidad"] == "día"
-    larga = dashboard._serie_temporal(registros, date(2024, 1, 1), HASTA)
+    assert proc.serie_temporal(registros, DESDE, HASTA)["granularidad"] == "día"
+    larga = proc.serie_temporal(registros, date(2024, 1, 1), HASTA)
     assert larga["granularidad"] == "mes" and larga["etiquetas"][0] == "2024-01"
 
 
