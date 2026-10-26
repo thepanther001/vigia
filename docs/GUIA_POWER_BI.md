@@ -1,92 +1,98 @@
-# Guía: visualizar los datos en Power BI
+# Guía: Vigía en Power BI
 
-El programa deja los CSV en `output/powerbi/` y **siempre con el mismo nombre**,
-así el reporte de Power BI se actualiza con un clic después de cada consulta.
+Power BI se conecta **directo al panel publicado**. Los CSV se regeneran cada mañana,
+así que el reporte se actualiza con un clic, sin correr nada.
 
-| Archivo | Una fila por… | Uso |
+| Archivo | URL | Una fila por… |
 |---|---|---|
-| `consolidado.csv` | CVE | Tabla principal (hechos) |
-| `registros.csv` | CVE y fuente | Comparar qué reporta cada base |
-| `cwe_por_cve.csv` | CVE y CWE | Analizar tipos de debilidad |
-| `por_mes.csv` | Mes | Tendencia ya calculada (opcional) |
+| Consolidado | `https://thepanther001.github.io/vigia/powerbi/consolidado.csv` | CVE (tabla principal) |
+| Registros | `https://thepanther001.github.io/vigia/powerbi/registros.csv` | CVE y fuente |
+| Inventario | `https://thepanther001.github.io/vigia/powerbi/inventario_afectaciones.csv` | Activo y CVE |
+| Debilidades | `https://thepanther001.github.io/vigia/powerbi/cwe_por_cve.csv` | CVE y CWE |
+
+> ¿Sin internet o con datos propios? Corre `python main.py ...` y usa los CSV de `output/powerbi/` con **Obtener datos → Texto o CSV**.
 
 ## 1. Importar
 
-1. **Obtener datos → Texto o CSV** → elegir `consolidado.csv` → **Transformar datos**.
-2. Revisar tipos en Power Query:
+1. Instala **Power BI Desktop** (gratis, Microsoft Store).
+2. **Inicio → Obtener datos → Web** → pega la URL de *Consolidado* → **Aceptar** → **Transformar datos**.
+3. Revisa los tipos de columna (ícono a la izquierda del nombre):
 
 | Columna | Tipo |
 |---|---|
 | `fecha_publicacion`, `fecha_limite_cisa` | Fecha |
-| `cvss_puntaje`, `epss`, `epss_percentil` | Número decimal |
+| `cvss_puntaje`, `epss`, `epss_percentil`, `prioridad_puntaje` | Número decimal |
 | `severidad_orden`, `anio`, `num_fuentes` | Número entero |
 | `explotada_activamente`, `en_nvd`, `en_kev`, `en_github` | Verdadero/Falso |
 
-3. Repetir con `registros.csv` y `cwe_por_cve.csv` → **Cerrar y aplicar**.
+   Si un decimal sale mal (9.8 aparece como 98): clic derecho en la columna →
+   **Cambiar tipo → Usar configuración regional → Número decimal / Inglés (Estados Unidos)**.
+4. Repite con *Registros*, *Inventario* y *Debilidades* → **Cerrar y aplicar**.
 
-> Si Power BI está en español y lee mal los decimales (9.8 → 98): en Power Query,
-> clic derecho en la columna → **Cambiar tipo → Usar configuración regional → Inglés (Estados Unidos)**.
+## 2. Tema de Vigía
 
-## 2. Modelo (relaciones)
+**Vista → Temas → Buscar temas** → elige `docs/powerbi/vigia-tema.json`.
+Aplica los colores de la marca, la fuente Inter y el fondo del panel.
 
-En la vista **Modelo** arrastrar:
+## 3. Relaciones
 
-- `consolidado[cve_id]` (1) → `registros[cve_id]` (*)
-- `consolidado[cve_id]` (1) → `cwe_por_cve[cve_id]` (*)
+En la vista **Modelo** arrastra:
 
-Para que la severidad salga en orden lógico: seleccionar `consolidado[severidad]` →
-**Herramientas de columnas → Ordenar por columna → `severidad_orden`**.
+- `consolidado[cve_id]` → `registros[cve_id]`
+- `consolidado[cve_id]` → `inventario_afectaciones[cve_id]`
+- `consolidado[cve_id]` → `cwe_por_cve[cve_id]`
 
-## 3. Medidas DAX
+## 4. Columnas y medidas (Modelado → Nueva columna / Nueva medida)
+
+Orden lógico de los plazos (para que no salgan en orden alfabético):
+
+```DAX
+Orden plazo =
+SWITCH ( consolidado[prioridad_nivel],
+    "INMEDIATA", 1, "URGENTE", 2, "PLANIFICADA", 3, "RUTINA", 4, 5 )
+```
+
+Selecciona `prioridad_nivel` → **Herramientas de columnas → Ordenar por columna → Orden plazo**.
+Haz lo mismo con `severidad` → ordenar por `severidad_orden`.
 
 ```DAX
 Total CVE = DISTINCTCOUNT ( consolidado[cve_id] )
 
-CVE Críticas = CALCULATE ( [Total CVE], consolidado[severidad] = "CRÍTICA" )
+Corrección inmediata = CALCULATE ( [Total CVE], consolidado[prioridad_nivel] = "INMEDIATA" )
 
-CVE Explotadas = CALCULATE ( [Total CVE], consolidado[explotada_activamente] = TRUE () )
+Explotadas = CALCULATE ( [Total CVE], consolidado[explotada_activamente] = TRUE () )
 
-% Explotadas = DIVIDE ( [CVE Explotadas], [Total CVE] )
+Críticas = CALCULATE ( [Total CVE], consolidado[severidad] = "CRÍTICA" )
 
-CVSS Promedio = AVERAGE ( consolidado[cvss_puntaje] )
+Afectan inventario = CALCULATE ( [Total CVE], NOT ISBLANK ( consolidado[activos_afectados] ) )
 
-Ransomware = CALCULATE ( [Total CVE], consolidado[ransomware] = "Sí" )
+CVSS promedio = AVERAGE ( consolidado[cvss_puntaje] )
+
+Índice promedio = AVERAGE ( consolidado[prioridad_puntaje] )
 ```
 
-## 4. Visuales sugeridos
+## 5. Página sugerida (igual al panel web)
 
-| Visual | Campos |
-|---|---|
-| Tarjetas | Total CVE, CVE Críticas, CVE Explotadas, CVSS Promedio |
-| Gráfico de líneas | Eje: `fecha_publicacion` (jerarquía Año/Mes) · Valores: Total CVE · Leyenda: `registros[fuente]` |
-| Anillo | Leyenda: `severidad` · Valores: Total CVE |
-| Barras horizontales | Eje: `proveedor` · Valores: Total CVE (Top N = 10 en el panel de filtros) |
-| Barras | Eje: `cwe_por_cve[nombre_cwe]` · Valores: Total CVE |
-| Tabla | `cve_id`, `titulo`, `severidad`, `cvss_puntaje`, `proveedor`, `explotada_activamente`, `url` |
-| Segmentadores | `fecha_publicacion` (rango), `severidad`, `fuentes`, `explotada_activamente` |
+| Zona | Visual | Campos |
+|---|---|---|
+| Arriba | Tarjeta grande | **Corrección inmediata** (color naranja `#EB6834`) |
+| Arriba derecha | 4 tarjetas pequeñas | Total CVE, Explotadas, Críticas, Afectan inventario |
+| Centro | Gráfico de columnas | Eje: `fecha_publicacion` (día) · Valores: Total CVE |
+| Centro | Gráfico de líneas sobre las columnas, o columna aparte | `registros` filtrado a fuente = CISA KEV |
+| Izquierda | Tabla "Qué corregir primero" | `prioridad_puntaje`, `prioridad_nivel`, `cve_id`, `titulo`, `cvss_puntaje`, `epss`, `explotada_activamente` · ordenada por `prioridad_puntaje` ↓ · Top N = 20 |
+| Derecha | Barras horizontales | Eje: `inventario_afectaciones[activo]` · Valores: Total CVE |
+| Abajo | Barra 100 % apilada | Leyenda: `severidad` · Valores: Total CVE |
+| Abajo | Barras | `proveedor` (Top 10) y `cwe_por_cve[nombre_cwe]` (Top 10) |
+| Lateral | Segmentadores | `fecha_publicacion`, `prioridad_nivel`, `severidad`, `explotada_activamente` |
 
-Para que la columna `url` sea clicable: seleccionarla → **Categoría de datos → Dirección URL web**.
+Colores con significado (iguales al panel):
 
-## 5. Actualizar con datos nuevos
+- **Naranja `#EB6834` solo para lo que se está explotando** o es de corrección inmediata.
+- Severidad en azules: Crítica `#1B2B48` · Alta `#2A5FA8` · Media `#4F8FDB` · Baja `#A9C8EE`.
+- Plazos: Inmediata `#EB6834` · Urgente `#2A78D6` · Planificada `#8DA9CF` · Rutina `#C3CAD5`.
 
-1. Correr otra vez el programa (`python main.py ...`).
-2. En Power BI: **Inicio → Actualizar**.
+Para que `url` sea un enlace: selecciona la columna → **Categoría de datos → Dirección URL web**.
 
-## 6. Conectar Power BI directo al panel en GitHub Pages (sin bajar archivos)
+## 6. Actualizar
 
-El workflow **Panel diario** publica los CSV todos los días. En Power BI:
-
-1. **Obtener datos → Web** → pegar
-   `https://thepanther001.github.io/vigia/powerbi/consolidado.csv`
-2. Repetir con `registros.csv`, `cwe_por_cve.csv` e `inventario_afectaciones.csv`.
-3. Cada vez que le des a **Actualizar**, Power BI trae los datos de ese día.
-
-Medidas extra para la prioridad:
-
-```DAX
-CVE Inmediatas = CALCULATE ( [Total CVE], consolidado[prioridad_nivel] = "INMEDIATA" )
-
-Prioridad Promedio = AVERAGE ( consolidado[prioridad_puntaje] )
-
-Afectan Inventario = CALCULATE ( [Total CVE], NOT ISBLANK ( consolidado[activos_afectados] ) )
-```
+**Inicio → Actualizar.** Power BI vuelve a leer los CSV del panel, que GitHub Actions regenera cada mañana a las 7:17 a. m.

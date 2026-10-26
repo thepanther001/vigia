@@ -1,0 +1,33 @@
+{
+  "name": "Vigía",
+  "dataColors": ["#2A78D6", "#1B2B48", "#EB6834", "#4F8FDB", "#8DA9CF", "#2A5FA8", "#A9C8EE", "#C3CAD5"],
+  "background": "#FFFFFF",
+  "foreground": "#14213A",
+  "tableAccent": "#2A78D6",
+  "good": "#17803D",
+  "neutral": "#8DA9CF",
+  "bad": "#EB6834",
+  "maximum": "#1B2B48",
+  "center": "#4F8FDB",
+  "minimum": "#A9C8EE",
+  "textClasses": {
+    "title":   { "fontFace": "Inter", "fontSize": 14, "color": "#14213A" },
+    "header":  { "fontFace": "Inter", "fontSize": 12, "color": "#14213A" },
+    "label":   { "fontFace": "Inter", "fontSize": 10, "color": "#47536A" },
+    "callout": { "fontFace": "Inter", "fontSize": 28, "color": "#1B2B48" }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [{ "color": { "solid": { "color": "#FFFFFF" } }, "transparency": 0 }],
+        "border": [{ "show": true, "color": { "solid": { "color": "#DCE2EA" } }, "radius": 12 }],
+        "visualHeader": [{ "show": false }]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [{ "color": { "solid": { "color": "#F4F6F9" } }, "transparency": 0 }]
+      }
+    }
+  }
+}
