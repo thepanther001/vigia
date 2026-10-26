@@ -126,7 +126,7 @@ def test_dashboard_escapa_datos_y_csp(datos, tmp_path):
     assert json.loads(bloque)["total_cves"] == len(c)          # pero el JSON sigue siendo válido
     script = re.findall(r"<script>(.*?)</script>", html, re.S)[-1]
     assert dashboard._hash_csp(script) in html                 # el hash CSP coincide con el script
-    assert 'integrity="sha384-' in html
+    assert "<script src=" not in html                          # sin scripts de terceros
     assert (tmp_path / "panel" / ".nojekyll").exists()
 
 

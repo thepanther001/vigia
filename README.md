@@ -43,7 +43,7 @@ cuando CISA confirma una vulnerabilidad nueva explotada.
 | Lista todo | Cruza con un **inventario** y muestra solo lo que afecta a la organización |
 | Un Excel que hay que volver a generar | **Panel web** que GitHub Actions actualiza solo y Power BI puede leer por URL |
 | Hay que revisarlo | **Alerta a Discord** cuando CISA agrega una CVE explotada |
-| Seguridad no considerada | Anti-XSS, CSP con hash, SRI, anti-inyección de fórmulas en Excel, webhook validado |
+| Seguridad no considerada | Anti-XSS, CSP con hash, cero scripts de terceros, anti-inyección de fórmulas en Excel, webhook validado |
 
 ---
 
@@ -298,7 +298,7 @@ fechas + fuentes ──►├─ CISA KEV (catálogo completo, filtro por fecha)
 | **Inyección de fórmulas** en Excel/CSV (OWASP) | Textos que empiezan con `= + - @` se neutralizan |
 | **XSS** en el panel (descripciones con `<script>`) | JSON escapado + todo se pinta con `textContent` |
 | Ejecución de scripts no autorizados | **Content-Security-Policy** con hash SHA-256 del script |
-| CDN comprometido | Chart.js con versión fija y **Subresource Integrity** (SRI) |
+| Librerías de terceros comprometidas | El panel **no carga ningún script externo**: los gráficos se dibujan en SVG con código propio |
 | Exfiltración por webhook falso | Solo se acepta `https://discord.com/api/webhooks/...` |
 | Spam de menciones | Las alertas no pueden hacer `@everyone` (`allowed_mentions` vacío) |
 

@@ -7,8 +7,8 @@
       para que un "</script>" dentro de una descripción no pueda inyectar código (XSS).
     - En el navegador todo se pinta con textContent (nunca innerHTML con datos).
     - Content-Security-Policy con el hash SHA-256 del script: el navegador solo
-      ejecuta ESE script y la librería de gráficos (versión fija con
-      verificación SRI); nada más.
+      ejecuta ESE script. No hay librerías de terceros: los gráficos se dibujan
+      en SVG con código propio.
 """
 
 from __future__ import annotations
@@ -27,10 +27,6 @@ from vigia import __version__
 from vigia import procesamiento as proc
 from vigia.prioridad import NIVELES
 
-# Chart.js fijado a una versión exacta + Subresource Integrity (SRI): si el CDN
-# entregara un archivo alterado, el navegador se niega a ejecutarlo.
-CHART_JS = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"
-CHART_JS_SRI = "sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG"
 MAX_CVE_EN_PANEL = 1500
 
 
@@ -137,7 +133,8 @@ def resumen_inventario(nombre: str, por_activo: pd.DataFrame, afectaciones: pd.D
         "activos": [
             {
                 "activo": r.activo,
-                "producto": f"{r.proveedor} {r.producto}".strip(),
+                "producto": (r.producto if str(r.producto).lower().startswith(str(r.proveedor).lower())
+                             else f"{r.proveedor} {r.producto}").strip(),
                 "criticidad": r.criticidad_activo,
                 "cve": int(r.CVE),
                 "explotadas": int(r.explotadas),
@@ -184,7 +181,7 @@ def generar_html(datos: dict) -> str:
     script = (PLANTILLAS / "dashboard.js").read_text(encoding="utf-8")
     csp = (
         "default-src 'none'; "
-        f"script-src '{_hash_csp(script)}' https://cdn.jsdelivr.net; "
+        f"script-src '{_hash_csp(script)}'; "
         "style-src 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src https://fonts.gstatic.com; "
         "img-src data:; base-uri 'none'; form-action 'none'"
@@ -194,8 +191,6 @@ def generar_html(datos: dict) -> str:
         .replace("__LOGO__", _logo_inline())
         .replace("__FAVICON__", _data_uri("icono.svg", "image/svg+xml"))
         .replace("__ICONO180__", _data_uri("icono-180.png", "image/png"))
-        .replace("__CHARTJS__", CHART_JS)
-        .replace("__SRI__", CHART_JS_SRI)
         .replace("__SCRIPT__", script)          # primero el script...
         .replace("__DATOS__", _json_seguro(datos))  # ...y al final los datos externos
     )
