@@ -81,6 +81,8 @@
   const temaActual = () => raiz.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const rotularTema = () => { $("#tema").textContent = temaActual() === "dark" ? "Modo claro" : "Modo oscuro"; };
   $("#tema").addEventListener("click", () => {
+    raiz.classList.add("cambiando");
+    setTimeout(() => raiz.classList.remove("cambiando"), 500);
     raiz.dataset.theme = temaActual() === "dark" ? "light" : "dark";
     try { localStorage.setItem("tema", raiz.dataset.theme); } catch (_) {}
     rotularTema();
@@ -143,6 +145,7 @@
   const tip = $("#tip");
   const diaria = S.granularidad === "día";
   const nombreDia = (e) => diaria ? fecha(e, { weekday: "short", day: "numeric", month: "short" }) : fecha(e + "-01", { month: "long", year: "numeric" });
+  const ultimoKev = kev.map((v, i) => (v > 0 ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
   function dibujarHorizonte() {
     const ancho = Math.max(240, svg.clientWidth || svg.parentNode.clientWidth);
     const paso = ancho / n;
@@ -157,7 +160,9 @@
       g.append(svgEl("rect", { class: "barra-dia", x: i * paso + hueco / 2, y: alto - h, width: Math.max(1, paso - hueco), height: h, rx: Math.min(3, paso / 6) }));
       if (kev[i] > 0 && !soloKev) {
         const r = Math.min(paso / 2.2, 3.5 + 3 * Math.sqrt(kev[i] / maxKev));
-        g.append(svgEl("circle", { class: "punto", cx: i * paso + paso / 2, cy: alto - h - r - 5, r }));
+        const cx = i * paso + paso / 2, cy = alto - h - r - 5;
+        if (i === ultimoKev) g.append(svgEl("circle", { class: "onda", cx, cy, r }));
+        g.append(svgEl("circle", { class: "punto", cx, cy, r }));
       }
       const t = svgEl("title", {});
       t.textContent = `${nombreDia(e)}: ${fmt(totales[i])} CVE` + (kev[i] ? `, ${fmt(kev[i])} ${plural(kev[i], "agregada", "agregadas")} a KEV` : "");
@@ -342,6 +347,8 @@
       el("td", { class: "r", text: c.epss == null ? "—" : fmt(c.epss * 100, 1) + "%" }),
       el("td", { class: "num", text: c.fecha ? fecha(c.fecha, { day: "numeric", month: "short" }) : "—" }))));
     if (!visibles.length) cuerpo.append(el("tr", {}, el("td", { colspan: 8, text: "Ninguna vulnerabilidad coincide. Prueba con menos filtros." })));
+    [...cuerpo.rows].forEach((tr, i) => tr.style.setProperty("--i", i));
+    cuerpo.classList.remove("fresco"); void cuerpo.offsetWidth; cuerpo.classList.add("fresco");
     $("#pag-info").textContent = lista.length
       ? `${fmt(pagina * POR_PAGINA + 1)} a ${fmt(pagina * POR_PAGINA + visibles.length)} de ${fmt(lista.length)}`
       : "0 resultados";
@@ -396,4 +403,69 @@
     el("a", { href: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog", target: "_blank", rel: "noopener noreferrer", text: "CISA KEV" }), ", ",
     el("a", { href: "https://github.com/advisories", target: "_blank", rel: "noopener noreferrer", text: "GitHub Advisory" }), " y ",
     el("a", { href: "https://www.first.org/epss", target: "_blank", rel: "noopener noreferrer", text: "FIRST EPSS" }), ".");
+
+  // ---------- Movimiento
+  // Solo si la persona no pidió reducir el movimiento. Todo el contenido ya está
+  // pintado con su valor final: las animaciones solo lo "presentan".
+  const MOVIMIENTO = !matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window;
+  if (MOVIMIENTO) {
+    raiz.classList.add("mov");
+
+    // Números que cuentan desde 0 hasta su valor
+    const contar = (nodoPadre, dur = 1100) => {
+      const nodo = [...nodoPadre.childNodes].find((x) => x.nodeType === 3 && /\d/.test(x.textContent));
+      if (!nodo || nodoPadre.dataset.contado) return;
+      nodoPadre.dataset.contado = "1";
+      const txt = nodo.textContent, m = txt.match(/[\d,]+(\.\d+)?/);
+      if (!m) return;
+      const fin = parseFloat(m[0].replace(/,/g, "")), dec = m[1] ? m[1].length - 1 : 0;
+      const antes = txt.slice(0, m.index), despues = txt.slice(m.index + m[0].length);
+      const t0 = performance.now();
+      const paso = (t) => {
+        const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+        nodo.textContent = antes + fmt(fin * e, dec) + despues;
+        if (p < 1) requestAnimationFrame(paso);
+      };
+      nodo.textContent = antes + fmt(0, dec) + despues;
+      requestAnimationFrame(paso);
+    };
+
+    // Llegada: la cifra grande y el resumen cuentan al cargar
+    document.querySelectorAll(".resumen > div").forEach((d, i) => d.style.setProperty("--i", i));
+    setTimeout(() => {
+      document.querySelectorAll("#titular .cifra").forEach((x) => contar(x, 1300));
+      document.querySelectorAll(".resumen dt").forEach((x, i) => setTimeout(() => contar(x, 1100), 350 + i * 90));
+    }, 120);
+
+    // Revelado al bajar
+    const grupos = [
+      [".grupo", ".fila"], [".activos", "li"], [".plazos", "li"], [".ranking", "li"],
+      [".descargas", ".descarga"], [".leyenda-sev", ":scope > div"], [".apilada", ":scope > span"], [".cien", ":scope > div"],
+    ];
+    const objetivos = [];
+    for (const [sel, hijos] of grupos) {
+      document.querySelectorAll(sel).forEach((cont) => {
+        cont.querySelectorAll(hijos).forEach((h, i) => {
+          h.style.setProperty("--i", i);
+          h.querySelectorAll(":scope > *").forEach((n) => n.style.setProperty("--i", i));
+          const riel = h.querySelector(".exposicion span, .riel span");
+          if (riel) riel.style.setProperty("--i", i);
+        });
+        objetivos.push(cont);
+      });
+    }
+    const numerosDentro = ".puntaje, .cuantas, .conteo b, .n, .leyenda-sev b, .grande";
+    const revelar = (cont) => {
+      cont.classList.add("visto");
+      cont.querySelectorAll(numerosDentro).forEach((n) => contar(n, 900));
+      const enc = cont.closest(".grupo") && cont.querySelector("h3 .cuantas");
+      if (enc) contar(enc, 900);
+    };
+    const io = new IntersectionObserver((entradas) => {
+      for (const en of entradas) if (en.isIntersecting) { revelar(en.target); io.unobserve(en.target); }
+    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    objetivos.forEach((o) => io.observe(o));
+    const nota = document.querySelector("#inv-nota");
+    if (nota) io.observe(nota);
+  }
 })();

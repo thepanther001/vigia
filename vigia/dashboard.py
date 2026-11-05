@@ -168,6 +168,7 @@ def _logo_inline() -> str:
     (azul marino en modo claro, blanco en modo oscuro)."""
     svg = (PLANTILLAS / "logo.svg").read_text(encoding="utf-8")
     svg = svg.replace('fill="#1B2B48"', 'style="fill:var(--wordmark)"')
+    svg = svg.replace('fill="#EB6834"', 'class="logo-punto" fill="#EB6834"', 1)  # el punto del vigía se anima
     return svg.replace("<svg ", '<svg aria-hidden="true" focusable="false" ', 1).replace('role="img" ', "")
 
 
